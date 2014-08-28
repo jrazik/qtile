@@ -8,6 +8,10 @@ import confreader
 #import window
 #from pane import Obj
 
+import gobject
+
+USE_BAR_DRAW_QUEUE = True
+
 STRETCH = pane.STRETCH
 CALCULATED = pane.CALCULATED
 STATIC = pane.STATIC
@@ -20,7 +24,7 @@ class Bar(pane.Pane, configurable.Configurable):
     """
     defaults = [
         ("background", "#000000", "Background colour."),
-        ("opacity",  1, "Bar window opacity.")
+        ("opacity", 1, "Bar window opacity."),
     ]
     """
     def __init__(self, widgets, size, **config):
@@ -37,8 +41,10 @@ class Bar(pane.Pane, configurable.Configurable):
         # contains the widgets with a popup window open
         self.popup_window = dict() 
 
+        self.queued_draws = 0
+
     def _configure(self, qtile, screen):
-        if not self in [screen.top, screen.bottom]:
+        if self not in [screen.top, screen.bottom]:
             raise confreader.ConfigError(
                 "Bars must be at the top or the bottom of the screen."
             )
@@ -82,6 +88,7 @@ class Bar(pane.Pane, configurable.Configurable):
         for i in self.widgets:
             qtile.registerWidget(i)
             i._configure(qtile, self)
+        self._resize(self.width, self.widgets)
 
         # FIXME: These should be targeted better.
         hook.subscribe.setgroup(self.draw)
@@ -172,8 +179,29 @@ class Bar(pane.Pane, configurable.Configurable):
             Removes the widget's keyboard handler.
         """
         del self.window.handle_KeyPress
-        if not self.saved_focus is None:
+        if self.saved_focus is not None:
             self.saved_focus.window.set_input_focus()
+
+    def draw(self):
+        if USE_BAR_DRAW_QUEUE:
+            if self.queued_draws == 0:
+                gobject.idle_add(self._actual_draw)
+            self.queued_draws += 1
+        else:
+            self._actual_draw()
+
+    def _actual_draw(self):
+        self.queued_draws = 0
+        self._resize(self.width, self.widgets)
+        for i in self.widgets:
+            i.draw()
+        if self.widgets:
+            end = i.offset + i.width
+            if end < self.width:
+                self.drawer.draw(end, self.width - end)
+
+        # have to return False here to avoid getting called again
+        return False
 
     def info(self):
         return dict(

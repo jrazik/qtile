@@ -24,7 +24,7 @@ class Subscribe:
 
     def _subscribe(self, event, func):
         lst = subscriptions.setdefault(event, [])
-        if not func in lst:
+        if func not in lst:
             lst.append(func)
 
     def startup(self, func):
@@ -168,6 +168,18 @@ class Subscribe:
         """
         return self._subscribe("net_wm_icon_change", func)
 
+    def selection_notify(self, func):
+        """
+            Called on selection notify.
+        """
+        return self._subscribe("selection_notify", func)
+
+    def selection_change(self, func):
+        """
+            Called on selection chance.
+        """
+        return self._subscribe("selection_change", func)
+
     def screen_change(self, func):
         """
             Called when a screen is added or screen configuration is changed
@@ -186,6 +198,13 @@ class Subscribe:
     def keyboard_layout_change(self, func):
         return self._subscribe("keyboard_layout_change", func)
         
+    def current_screen_change(self, func):
+        """
+            Called when the current screen (i.e. the screen with focus)
+            changes; no arguments.
+        """
+        return self._subscribe("current_screen_change", func)
+
 subscribe = Subscribe()
 
 
@@ -210,10 +229,13 @@ unsubscribe = Unsubscribe()
 def fire(event, *args, **kwargs):
     if event not in subscribe.hooks:
         raise utils.QtileError("Unknown event: %s" % event)
-    if not event in SKIPLOG:
+    if event not in SKIPLOG:
         qtile.log.info(
             "Internal event: %s(%s, %s)" %
             (event, args, kwargs)
         )
     for i in subscriptions.get(event, []):
-        i(*args, **kwargs)
+        try:
+            i(*args, **kwargs)
+        except:
+            qtile.log.exception("Error in hook %s" % (event,))

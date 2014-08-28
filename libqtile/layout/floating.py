@@ -1,11 +1,12 @@
 from base import Layout
-from .. import manager, window
+from .. import window
 
 DEFAULT_FLOAT_WM_TYPES = set([
     'utility',
     'notification',
     'toolbar',
     'splash',
+    'dialog',
 ])
 
 
@@ -102,6 +103,8 @@ class Floating(Layout):
             return self.clients[0]
 
     def focus_next(self, win):
+        if win not in self.clients:
+            return
         idx = self.clients.index(win)
         if len(self.clients) > idx + 1:
             return self.clients[idx + 1]
@@ -110,52 +113,67 @@ class Floating(Layout):
         if self.clients:
             return self.clients[-1]
 
-    def focus_prev(self, win):
+    def focus_previous(self, win):
+        if win not in self.clients:
+            return
         idx = self.clients.index(win)
         if idx > 0:
             return self.clients[idx - 1]
 
-    def focus(self, c):
-        self.focused = c
+    def focus(self, client):
+        self.focused = client
 
     def blur(self):
         self.focused = None
 
-    def configure(self, c, screen):
-        if c is self.focused:
+    def configure(self, client, screen):
+        if client is self.focused:
             bc = self.group.qtile.colorPixel(self.border_focus)
         else:
             bc = self.group.qtile.colorPixel(self.border_normal)
-        if c.maximized:
+        if client.maximized:
             bw = self.max_border_width
-        elif c.fullscreen:
+        elif client.fullscreen:
             bw = self.fullscreen_border_width
         else:
             bw = self.border_width
-        c.place(
-            c.x,
-            c.y,
-            c.width,
-            c.height,
+        client.place(
+            client.x,
+            client.y,
+            client.width,
+            client.height,
             bw,
             bc
         )
-        c.unhide()
+        client.unhide()
 
     def clone(self, group):
         c = Layout.clone(self, group)
         c.clients = []
         return c
 
-    def add(self, c):
-        self.clients.append(c)
+    def add(self, client):
+        self.clients.append(client)
+        self.focused = client
 
-    def remove(self, c):
-        res = self.focus_next(c)
-        self.clients.remove(c)
-        return res
+    def remove(self, client):
+        if client not in self.clients:
+            return
+        self.focused = self.focus_next(client)
+        self.clients.remove(client)
+        return self.focused
 
     def info(self):
         d = Layout.info(self)
-        d["clients"] = [i.name for i in self.clients]
+        d["clients"] = [x.name for x in self.clients]
         return d
+
+    def cmd_next(self):
+        client = self.focus_next(self.focused) or \
+            self.focus_first()
+        self.group.focus(client, False)
+
+    def cmd_previous(self):
+        client = self.focus_previous(self.focused) or \
+            self.focus_last()
+        self.group.focus(client, False)

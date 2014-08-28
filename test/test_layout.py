@@ -76,7 +76,7 @@ def test_matrix_navigation(self):
     self.testWindow("three")
     self.testWindow("four")
     self.testWindow("five")
-    self.c.layout.next()
+    self.c.layout.right()
     assert self.c.layout.info()["current_window"] == (0, 2)
     self.c.layout.up()
     assert self.c.layout.info()["current_window"] == (0, 1)
@@ -88,9 +88,9 @@ def test_matrix_navigation(self):
     assert self.c.layout.info()["current_window"] == (0, 0)
     self.c.layout.down()
     assert self.c.layout.info()["current_window"] == (0, 1)
-    self.c.layout.next()
+    self.c.layout.right()
     assert self.c.layout.info()["current_window"] == (1, 1)
-    self.c.layout.next()
+    self.c.layout.right()
     assert self.c.layout.info()["current_window"] == (0, 1)
 
 
@@ -143,9 +143,9 @@ def test_max_updown(self):
     self.testWindow("three")
     assert self.c.layout.info()["clients"] == ["three", "two", "one"]
     self.c.layout.down()
-    assert self.c.layout.info()["clients"] == ["two", "one", "three"]
+    assert self.c.groups()["a"]["focus"] == "two"
     self.c.layout.up()
-    assert self.c.layout.info()["clients"] == ["three", "two", "one"]
+    assert self.c.groups()["a"]["focus"] == "three"
 
 
 @Xephyr(False, MaxConfig())
@@ -167,8 +167,8 @@ class StackConfig:
         libqtile.config.Group("d")
     ]
     layouts = [
-        layout.Stack(stacks=2),
-        layout.Stack(stacks=1),
+        layout.Stack(num_stacks=2),
+        layout.Stack(num_stacks=1),
     ]
     floating_layout = libqtile.layout.floating.Floating()
     keys = []
@@ -180,7 +180,7 @@ class StackConfig:
 def _stacks(self):
     stacks = []
     for i in self.c.layout.info()["stacks"]:
-        windows = i["windows"]
+        windows = i["clients"]
         current = i["current"]
         stacks.append(windows[current:] + windows[:current])
     return stacks
@@ -321,29 +321,29 @@ def test_stack_shuffle(self):
     three = self.testWindow("three")
 
     stack = self.c.layout.info()["stacks"][0]
-    assert stack["windows"][stack["current"]] == "three"
+    assert stack["clients"][stack["current"]] == "three"
     for i in range(5):
         self.c.layout.shuffle_up()
         stack = self.c.layout.info()["stacks"][0]
-        assert stack["windows"][stack["current"]] == "three"
+        assert stack["clients"][stack["current"]] == "three"
     for i in range(5):
         self.c.layout.shuffle_down()
         stack = self.c.layout.info()["stacks"][0]
-        assert stack["windows"][stack["current"]] == "three"
+        assert stack["clients"][stack["current"]] == "three"
 
 
 @Xephyr(False, StackConfig())
 def test_stack_client_to(self):
     one = self.testWindow("one")
     two = self.testWindow("two")
-    assert self.c.layout.info()["stacks"][0]["windows"] == ["one"]
+    assert self.c.layout.info()["stacks"][0]["clients"] == ["one"]
     self.c.layout.client_to_previous()
-    assert self.c.layout.info()["stacks"][0]["windows"] == ["two", "one"]
+    assert self.c.layout.info()["stacks"][0]["clients"] == ["two", "one"]
     self.c.layout.client_to_previous()
-    assert self.c.layout.info()["stacks"][0]["windows"] == ["one"]
-    assert self.c.layout.info()["stacks"][1]["windows"] == ["two"]
+    assert self.c.layout.info()["stacks"][0]["clients"] == ["one"]
+    assert self.c.layout.info()["stacks"][1]["clients"] == ["two"]
     self.c.layout.client_to_next()
-    assert self.c.layout.info()["stacks"][0]["windows"] == ["two", "one"]
+    assert self.c.layout.info()["stacks"][0]["clients"] == ["two", "one"]
 
 
 @Xephyr(False, StackConfig())
@@ -533,11 +533,11 @@ def test_tile_updown(self):
     self.testWindow("one")
     self.testWindow("two")
     self.testWindow("three")
-    assert self.c.layout.info()["all"] == ["three", "two", "one"]
+    assert self.c.layout.info()["clients"] == ["three", "two", "one"]
     self.c.layout.down()
-    assert self.c.layout.info()["all"] == ["two", "one", "three"]
+    assert self.c.layout.info()["clients"] == ["two", "one", "three"]
     self.c.layout.up()
-    assert self.c.layout.info()["all"] == ["three", "two", "one"]
+    assert self.c.layout.info()["clients"] == ["three", "two", "one"]
 
 
 @Xephyr(False, TileConfig())
@@ -546,16 +546,16 @@ def test_tile_nextprev(self):
     self.testWindow("two")
     self.testWindow("three")
 
-    assert self.c.layout.info()["all"] == ["three", "two", "one"]
+    assert self.c.layout.info()["clients"] == ["three", "two", "one"]
+    assert self.c.groups()["a"]["focus"] == "three"
+
+    self.c.layout.next()
+    assert self.c.groups()["a"]["focus"] == "two"
+
+    self.c.layout.previous()
     assert self.c.groups()["a"]["focus"] == "three"
 
     self.c.layout.previous()
-    assert self.c.groups()["a"]["focus"] == "two"
-
-    self.c.layout.next()
-    assert self.c.groups()["a"]["focus"] == "three"
-
-    self.c.layout.next()
     assert self.c.groups()["a"]["focus"] == "one"
 
     self.c.layout.next()
@@ -599,13 +599,13 @@ class SliceConfig:
     ]
     layouts = [
         layout.Slice(side='left', width=200, wname='slice',
-            fallback=layout.Stack(stacks=1, border_width=0)),
+            fallback=layout.Stack(num_stacks=1, border_width=0)),
         layout.Slice(side='right', width=200, wname='slice',
-            fallback=layout.Stack(stacks=1, border_width=0)),
+            fallback=layout.Stack(num_stacks=1, border_width=0)),
         layout.Slice(side='top', width=200, wname='slice',
-            fallback=layout.Stack(stacks=1, border_width=0)),
+            fallback=layout.Stack(num_stacks=1, border_width=0)),
         layout.Slice(side='bottom', width=200, wname='slice',
-            fallback=layout.Stack(stacks=1, border_width=0)),
+            fallback=layout.Stack(num_stacks=1, border_width=0)),
         ]
     floating_layout = libqtile.layout.floating.Floating()
     keys = []
@@ -676,6 +676,18 @@ def test_all_slices(self):
     assertDimensions(self, 0, 200, 800, 400)
     self.c.nextlayout()  # bottom
     assertDimensions(self, 0, 0, 800, 400)
+
+
+@Xephyr(False, SliceConfig())
+def test_command_propagation(self):
+    self.testWindow('slice')
+    self.testWindow('one')
+    self.testWindow('two')
+    info = self.c.layout.info()
+    assert info['name'] == 'slice', info['name']
+    org_height = self.c.window.info()['height']
+    self.c.layout.toggle_split()
+    assert self.c.window.info()['height'] != org_height
 
 
 class ZoomyConfig:

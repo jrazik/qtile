@@ -1,5 +1,4 @@
 from base import SingleWindow
-from .. import manager
 import math
 
 
@@ -111,6 +110,7 @@ class MonadTall(SingleWindow):
         ("border_normal", "#000000", "Border colour for un-focused winows."),
         ("border_width", 2, "Border width."),
         ("name", "xmonad-tall", "Name of this layout."),
+        ("margin", 0, "Margin of the layout"),
     ]
 
     def __init__(self, ratio=_med_ratio, align=_left, change_ratio=.05,
@@ -155,9 +155,9 @@ class MonadTall(SingleWindow):
         if self.clients:
             return self.clients[self.focused]
 
-    def focus(self, c):
+    def focus(self, client):
         "Set focus to specified client"
-        self.focused = self.clients.index(c)
+        self.focused = self.clients.index(client)
 
     def clone(self, group):
         "Clone layout for other groups"
@@ -170,17 +170,19 @@ class MonadTall(SingleWindow):
         c._focus = 0
         return c
 
-    def add(self, c):
+    def add(self, client):
         "Add client to layout"
-        self.clients.insert(self.focused + 1, c)
+        self.clients.insert(self.focused + 1, client)
         self.do_normalize = True
 
-    def remove(self, c):
+    def remove(self, client):
         "Remove client from layout"
+        if client not in self.clients:
+            return
         # get index of removed client
-        idx = self.clients.index(c)
+        idx = self.clients.index(client)
         # remove the client
-        self.clients.remove(c)
+        self.clients.remove(client)
         # move focus pointer
         self.focused = max(0, idx - 1)
         self.do_normalize = True
@@ -239,32 +241,33 @@ class MonadTall(SingleWindow):
             self._maximize_secondary()
         self.group.layoutAll()
 
-    def configure(self, c, screen):
+    def configure(self, client, screen):
         "Position client based on order and sizes"
         # if no sizes or normalize flag is set, normalize
         if not self.relative_sizes or self.do_normalize:
             self.cmd_normalize(False)
 
         # if client not in this layout
-        if not self.clients or c not in self.clients:
-            c.hide()
+        if not self.clients or client not in self.clients:
+            client.hide()
             return
 
         # single client - fullscreen
         if len(self.clients) == 1:
             px = self.group.qtile.colorPixel(self.border_focus)
-            c.place(
+            client.place(
                 self.group.screen.dx,
                 self.group.screen.dy,
                 self.group.screen.dwidth,
                 self.group.screen.dheight,
                 0,
-                px
+                px,
+                margin=self.margin,
             )
-            c.unhide()
+            client.unhide()
             return
 
-        cidx = self.clients.index(c)
+        cidx = self.clients.index(client)
 
         # determine focus border-color
         if cidx == self.focused:
@@ -306,26 +309,28 @@ class MonadTall(SingleWindow):
                 self.relative_sizes[cidx - 1]
             )
             # place client based on calculated dimensions
-            c.place(
+            client.place(
                 xpos,
                 ypos,
                 width,
                 height - 2 * self.border_width,
                 self.border_width,
-                px
+                px,
+                margin=self.margin,
             )
-            c.unhide()
+            client.unhide()
         else:
             # main client
             width = width_main - 2 * self.border_width
-            c.place(
+            client.place(
                 xpos, self.group.screen.dy,
                 width,
                 self.group.screen.dheight - 2 * self.border_width,
                 self.border_width,
-                px
+                px,
+                margin=self.margin,
             )
-            c.unhide()
+            client.unhide()
 
     def get_shrink_margin(self, cidx):
         "Return how many remaining pixels a client can shrink"
@@ -557,17 +562,17 @@ class MonadTall(SingleWindow):
         secondary pane.
         """
         # get focused client
-        c = self.clients[self.focused]
+        client = self.clients[self.focused]
 
         # get default change size
         change = amt
 
         # get left-over height after change
-        left = c.height - amt
+        left = client.height - amt
         # if change would violate min_height
         if left < self._min_height:
             # just reduce to min_height
-            change = c.height - self._min_height
+            change = client.height - self._min_height
 
         # calculate half of that change
         half_change = change / 2
@@ -589,6 +594,40 @@ class MonadTall(SingleWindow):
         # shrink client by total change
         self.relative_sizes[self.focused - 1] -= \
             self._get_relative_size_from_absolute(change)
+
+    def focus_first(self):
+        if self.clients:
+            return self.clients[0]
+
+    def focus_last(self):
+        if self.clients:
+            return self.clients[-1]
+
+    def focus_next(self, window):
+        if not self.clients:
+            return
+        if self.focused != self.clients.index(window):
+            self.focus(window)
+        if self.focused + 1 < len(self.clients):
+            return self.clients[self.focused + 1]
+
+    def focus_previous(self, window):
+        if not self.clients:
+            return
+        if self.focused != self.clients.index(window):
+            self.focus(window)
+        if self.focused > 0:
+            return self.clients[self.focused - 1]
+
+    def cmd_next(self):
+        client = self.focus_next(self.clients[self.focused]) or \
+            self.focus_first()
+        self.group.focus(client, False)
+
+    def cmd_previous(self):
+        client = self.focus_previous(self.clients[self.focused]) or \
+            self.focus_last()
+        self.group.focus(client, False)
 
     def cmd_shrink(self):
         """

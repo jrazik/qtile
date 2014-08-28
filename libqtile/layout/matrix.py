@@ -14,6 +14,7 @@ class Matrix(Layout):
         ("border_normal", "#000000", "Border colour for un-focused winows."),
         ("border_width", 1, "Border width."),
         ("name", "matrix", "Name of this layout."),
+        ("margin", 0, "Margin of the layout"),
     ]
 
     def __init__(self, columns=2, **config):
@@ -21,7 +22,7 @@ class Matrix(Layout):
         self.add_defaults(Matrix.defaults)
         self.current_window = None
         self.columns = columns
-        self.windows = []
+        self.clients = []
 
     def info(self):
         d = Layout.info(self)
@@ -30,54 +31,81 @@ class Matrix(Layout):
             for i in xrange(self.get_num_rows())
         ]
         d["current_window"] = self.current_window
+        d["clients"] = [x.name for x in self.clients]
         return d
 
     def clone(self, group):
         c = Layout.clone(self, group)
-        c.windows = []
+        c.clients = []
         return c
 
     def get_current_window(self):
         c, r = self.current_window
-        return self.windows[r * self.columns + c]
+        return self.clients[r * self.columns + c]
 
     def get_num_rows(self):
-        return int(math.ceil(float(len(self.windows)) / self.columns))
+        return int(math.ceil(float(len(self.clients)) / self.columns))
 
     def get_row(self, row):
         assert row < self.get_num_rows()
-        return self.windows[
+        return self.clients[
             row * self.columns: row * self.columns + self.columns
         ]
 
     def get_column(self, column):
         assert column < self.columns
         return [
-            self.windows[i]
-            for i in xrange(column, len(self.windows), self.columns)
+            self.clients[i]
+            for i in xrange(column, len(self.clients), self.columns)
         ]
 
-    def add(self, c):
-        self.windows.append(c)
+    def add(self, client):
+        self.clients.append(client)
 
-    def remove(self, c):
-        self.windows.remove(c)
+    def remove(self, client):
+        if client not in self.clients:
+            return
+        self.clients.remove(client)
 
-    def focus(self, c):
-        idx = self.windows.index(c)
+    def focus(self, client):
+        if client not in self.clients:
+            return
+        idx = self.clients.index(client)
         self.current_window = (idx % self.columns, idx / self.columns)
 
     def focus_first(self):
-        if self.windows:
-            return self.windows[0]
-        else:
-            return None
+        if self.clients:
+            return self.clients[0]
 
-    def configure(self, c, screen):
-        idx = self.windows.index(c)
+    def focus_last(self):
+        if self.clients:
+            return self.clients[-1]
+
+    def focus_next(self, window):
+        if not self.clients:
+            return
+        if self.get_current_window != window:
+            self.focus(window)
+        idx = self.clients.index(window)
+        if idx + 1 < len(self.clients):
+            return self.clients[idx + 1]
+
+    def focus_previous(self, window):
+        if not self.clients:
+            return
+        if self.get_current_window != window:
+            self.focus(window)
+        idx = self.clients.index(window)
+        if idx > 0:
+            return self.clients[idx - 1]
+
+    def configure(self, client, screen):
+        if client not in self.clients:
+            return
+        idx = self.clients.index(client)
         column = idx % self.columns
         row = idx / self.columns
-        column_size = int(math.ceil(float(len(self.windows)) / self.columns))
+        column_size = int(math.ceil(float(len(self.clients)) / self.columns))
         if (column, row) == self.current_window:
             px = self.group.qtile.colorPixel(self.border_focus)
         else:
@@ -89,17 +117,36 @@ class Matrix(Layout):
         win_width = column_width - 2 * self.border_width
         win_height = row_height - 2 * self.border_width
 
-        c.place(
+        client.place(
             xoffset,
             yoffset,
             win_width,
             win_height,
             self.border_width,
-            px
+            px,
+            margin=self.margin,
         )
-        c.unhide()
+        client.unhide()
 
     def cmd_next(self):
+        client = self.focus_next(self.get_current_window()) or \
+            self.focus_first()
+        self.group.focus(client, False)
+
+    def cmd_previous(self):
+        client = self.focus_previous(self.get_current_window()) or \
+            self.focus_last()
+        self.group.focus(client, False)
+
+    def cmd_left(self):
+        """
+            Switch to the next window on current row
+        """
+        column, row = self.current_window
+        self.current_window = ((column - 1) % len(self.get_row(row)), row)
+        self.group.focus(self.get_current_window(), False)
+
+    def cmd_right(self):
         """
             Switch to the next window on current row
         """

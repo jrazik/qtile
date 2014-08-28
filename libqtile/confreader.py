@@ -56,6 +56,7 @@ class File(object):
                 # screwed up their config. So as not to lose their apps, we
                 # just load the default config here.
                 if is_restart:
+                    traceback.print_exc()
                     config = None
                 else:
                     tb = traceback.format_exc()
@@ -79,6 +80,8 @@ class File(object):
             "main",
             "auto_fullscreen",
             "widget_defaults",
+            "bring_front_click",
+            "wmname",
         ]
 
         # We delay importing here to avoid a circular import issue when

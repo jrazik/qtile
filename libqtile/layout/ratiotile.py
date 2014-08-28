@@ -1,7 +1,7 @@
 import math
 
 from base import Layout
-from .. import utils, manager
+from .. import utils
 
 
 ROWCOL = 1  # do rows at a time left to right top down
@@ -192,13 +192,14 @@ class RatioTile(Layout):
         ("border_normal", "#000000", "Border colour for un-focused winows."),
         ("border_width", 1, "Border width."),
         ("name", "ratiotile", "Name of this layout."),
+        ("margin", 0, "Margin of the layout"),
     ]
 
     def __init__(self, ratio=GOLDEN_RATIO, ratio_increment=0.1,
                  fancy=False, **config):
         Layout.__init__(self, **config)
         self.add_defaults(RatioTile.defaults)
-        self.windows = []
+        self.clients = []
         self.ratio_increment = ratio_increment
         self.ratio = ratio
         self.focused = None
@@ -210,7 +211,7 @@ class RatioTile(Layout):
 
     def clone(self, group):
         c = Layout.clone(self, group)
-        c.windows = []
+        c.clients = []
         return c
 
     def focus(self, c):
@@ -221,15 +222,15 @@ class RatioTile(Layout):
 
     def add(self, w):
         self.dirty = True
-        self.windows.insert(0, w)
+        self.clients.insert(0, w)
 
     def remove(self, w):
         self.dirty = True
         if self.focused is w:
             self.focused = None
-        self.windows.remove(w)
-        if self.windows:  # and w is self.focused:
-            self.focused = self.windows[0]
+        self.clients.remove(w)
+        if self.clients:  # and w is self.focused:
+            self.focused = self.clients[0]
         return self.focused
 
     def configure(self, win, screen):
@@ -244,7 +245,7 @@ class RatioTile(Layout):
         if self.dirty:
             gi = GridInfo(
                 self.ratio,
-                len(self.windows),
+                len(self.clients),
                 screen.width,
                 screen.height
             )
@@ -263,7 +264,7 @@ class RatioTile(Layout):
 
             self.dirty = False
         try:
-            idx = self.windows.index(win)
+            idx = self.clients.index(win)
         except ValueError:
             win.hide()
             return
@@ -278,57 +279,58 @@ class RatioTile(Layout):
             w - self.border_width * 2,
             h - self.border_width * 2,
             self.border_width,
-            bc
+            bc,
+            margin=self.margin,
         )
         win.unhide()
 
     def info(self):
         return {
-            'windows': [x.name for x in self.windows],
+            'clients': [x.name for x in self.clients],
             'ratio': self.ratio,
             'focused': self.focused.name if self.focused else None,
             'layout_info': self.layout_info
         }
 
     def shuffleUp(self):
-        if self.windows:
-            utils.shuffleUp(self.windows)
+        if self.clients:
+            utils.shuffleUp(self.clients)
             self.group.layoutAll()
 
     def shuffleDown(self):
-        if self.windows:
-            utils.shuffleDown(self.windows)
+        if self.clients:
+            utils.shuffleDown(self.clients)
             self.group.layoutAll()
 
     def focus_first(self):
-        if self.windows:
-            return self.windows[0]
+        if self.clients:
+            return self.clients[0]
 
     def focus_next(self, win):
-        idx = self.windows.index(win)
-        if len(self.windows) > idx + 1:
-            return self.windows[idx + 1]
+        idx = self.clients.index(win)
+        if len(self.clients) > idx + 1:
+            return self.clients[idx + 1]
 
     def focus_last(self):
-        if self.windows:
-            return self.windows[-1]
+        if self.clients:
+            return self.clients[-1]
 
-    def focus_prev(self, win):
-        idx = self.windows.index(win)
+    def focus_previous(self, win):
+        idx = self.clients.index(win)
         if idx > 0:
-            return self.windows[idx - 1]
+            return self.clients[idx - 1]
 
     def getNextClient(self):
-        previndex = self.windows.index(self.focused) - 1
+        previndex = self.clients.index(self.focused) - 1
         if previndex < 0:
-            previndex = len(self.windows) - 1
-        return self.windows[previndex]
+            previndex = len(self.clients) - 1
+        return self.clients[previndex]
 
     def getPreviousClient(self):
-        nextindex = self.windows.index(self.focused) + 1
-        if nextindex >= len(self.windows):
+        nextindex = self.clients.index(self.focused) + 1
+        if nextindex >= len(self.clients):
             nextindex = 0
-        return self.windows[nextindex]
+        return self.clients[nextindex]
 
     def next(self):
         n = self.getPreviousClient()
@@ -339,8 +341,8 @@ class RatioTile(Layout):
         self.group.focus(n, True)
 
     def shuffle(self, function):
-        if self.windows:
-            function(self.windows)
+        if self.clients:
+            function(self.clients)
             self.group.layoutAll()
 
     def cmd_down(self):

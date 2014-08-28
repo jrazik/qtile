@@ -5,7 +5,6 @@ Slice layout. Serves as example of delegating layouts (or sublayouts)
 
 from base import Layout, SingleWindow, Delegate
 from max import Max
-from .. import manager
 
 
 class Single(SingleWindow):
@@ -35,6 +34,24 @@ class Single(SingleWindow):
         Returns True if the layout empty (and is willing to accept windows)
         """
         return self.window is None
+
+    def focus_first(self):
+        return self.window
+
+    def focus_last(self):
+        return self.window
+
+    def focus_next(self, window):
+        return self.window
+
+    def focus_previous(self, window):
+        return self.window
+
+    def cmd_next(self):
+        pass
+
+    def cmd_previous(self):
+        pass
 
 
 class Slice(Delegate):
@@ -107,3 +124,9 @@ class Slice(Delegate):
         else:
             self._fallback.add(win)
             self.layouts[win] = self._fallback
+
+    def cmd_next(self):
+        self._fallback.cmd_next()
+
+    def cmd_previous(self):
+        self._fallback.cmd_previous()

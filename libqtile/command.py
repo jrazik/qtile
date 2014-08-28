@@ -276,13 +276,22 @@ class _Call:
         # Conditionals
         self.layout = None
 
-    def when(self, layout=None):
+    def when(self, layout=None, when_floating=True):
         self.layout = layout
+        self.when_floating = when_floating
         return self
 
     def check(self, q):
-        if self.layout and q.currentLayout.name != self.layout:
-            return False
+        if self.layout:
+            if self.layout == 'floating':
+                if q.currentWindow.floating:
+                    return True
+                return False
+            if q.currentLayout.name != self.layout:
+                return False
+            if q.currentWindow and q.currentWindow.floating \
+                    and not self.when_floating:
+                return False
         return True
 
 
@@ -321,7 +330,9 @@ class CommandObject(object):
         """
         ret = self._items(name)
         if ret is None:
-            raise CommandError("Unknown item class: %s" % name)
+            # Not finding information for a particular item class is OK here;
+            # we don't expect layouts to have a window, etc.
+            return ([], [])
         return ret
 
     def _items(self, name):
@@ -400,3 +411,28 @@ class CommandObject(object):
             return self.doc(name)
         else:
             raise CommandError("No such command: %s" % name)
+
+    def cmd_eval(self, code):
+        """
+            Evaluates code in the same context as this function.
+            Return value is (success, result), success being a boolean and
+            result being a string representing the return value of eval, or
+            None if exec was used instead.
+        """
+        try:
+            try:
+                return (True, str(eval(code)))
+            except SyntaxError:
+                exec code
+                return (True, None)
+        except:
+            error = traceback.format_exc().strip().split("\n")[-1]
+            return (False, error)
+
+    def cmd_function(self, function):
+        """Call a function with current object as argument"""
+        try:
+            function(self)
+        except Exception:
+            error = traceback.format_exc()
+            self.log.error('Exception calling "%s":\n%s' % (function, error))

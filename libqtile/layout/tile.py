@@ -1,5 +1,5 @@
 from base import Layout
-from .. import utils, manager
+from .. import utils
 
 
 class Tile(Layout):
@@ -49,21 +49,23 @@ class Tile(Layout):
     def shift_up(self):
         if self.clients:
             currentindex = self.clients.index(self.focused)
-            nextindex = self.get_next_index(currentindex)
+            nextindex = (currentindex + 1) % len(self.clients)
             self.shift(currentindex, nextindex)
 
     def shift_down(self):
         if self.clients:
             currentindex = self.clients.index(self.focused)
-            previndex = self.get_previous_index(currentindex)
+            previndex = (currentindex - 1) % len(self.clients)
             self.shift(currentindex, previndex)
 
     def focus_first(self):
         if self.clients:
             return self.clients[0]
 
-    def focus_next(self, win):
-        idx = self.clients.index(win)
+    def focus_next(self, client):
+        if client not in self.clients:
+            return
+        idx = self.clients.index(client)
         if len(self.clients) > idx + 1:
             return self.clients[idx + 1]
 
@@ -71,40 +73,12 @@ class Tile(Layout):
         if self.clients:
             return self.clients[-1]
 
-    def focus_prev(self, win):
-        idx = self.clients.index(win)
+    def focus_previous(self, client):
+        if client not in self.clients:
+            return
+        idx = self.clients.index(client)
         if idx > 0:
             return self.clients[idx - 1]
-
-    def get_next_index(self, currentindex):
-        nextindex = currentindex + 1
-        if nextindex >= len(self.clients):
-            nextindex = 0
-        return nextindex
-
-    def get_previous_index(self, currentindex):
-        previndex = currentindex - 1
-        if previndex < 0:
-            previndex = len(self.clients) - 1
-        return previndex
-
-    def getNextClient(self):
-        currentindex = self.clients.index(self.focused)
-        nextindex = self.get_next_index(currentindex)
-        return self.clients[nextindex]
-
-    def getPreviousClient(self):
-        currentindex = self.clients.index(self.focused)
-        previndex = self.get_previous_index(currentindex)
-        return self.clients[previndex]
-
-    def next(self):
-        n = self.getPreviousClient()
-        self.group.focus(n, True)
-
-    def previous(self):
-        n = self.getNextClient()
-        self.group.focus(n, True)
 
     def shuffle(self, function):
         if self.clients:
@@ -133,28 +107,32 @@ class Tile(Layout):
         c.clients = []
         return c
 
-    def focus(self, c):
-        self.focused = c
+    def focus(self, client):
+        self.focused = client
 
     def blur(self):
         self.focused = None
 
-    def add(self, c):
+    def add(self, client):
         index = 0
         if not self.add_on_top and self.clients and self.focused:
             index = self.clients.index(self.focused)
-        self.clients.insert(index, c)
+        self.clients.insert(index, client)
         self.resetMaster()
 
-    def remove(self, c):
-        if self.focused is c:
+    def remove(self, client):
+        if client not in self.clients:
+            return
+
+        if self.focused is client:
             self.focused = None
-        self.clients.remove(c)
-        if self.clients and c is self.focused:
+
+        self.clients.remove(client)
+        if self.clients and client is self.focused:
             self.focused = self.clients[0]
         return self.focused
 
-    def configure(self, c, screen):
+    def configure(self, client, screen):
         screenWidth = screen.width
         screenHeight = screen.height
         x = 0
@@ -162,10 +140,9 @@ class Tile(Layout):
         w = 0
         h = 0
         borderWidth = self.border_width
-        margin = self.margin
-        if self.clients and c in self.clients:
-            pos = self.clients.index(c)
-            if c in self.master_windows:
+        if self.clients and client in self.clients:
+            pos = self.clients.index(client)
+            if client in self.master_windows:
                 w = int(screenWidth * self.ratio) \
                     if len(self.slave_windows) or not self.expand \
                     else screenWidth
@@ -176,26 +153,27 @@ class Tile(Layout):
                 w = screenWidth - int(screenWidth * self.ratio)
                 h = screenHeight / (len(self.slave_windows))
                 x = screen.x + int(screenWidth * self.ratio)
-                y = screen.y + self.clients[self.master:].index(c) * h
-            if c is self.focused:
+                y = screen.y + self.clients[self.master:].index(client) * h
+            if client is self.focused:
                 bc = self.group.qtile.colorPixel(self.border_focus)
             else:
                 bc = self.group.qtile.colorPixel(self.border_normal)
-            c.place(
-                x + margin,
-                y + margin,
-                w - margin * 2 - borderWidth * 2,
-                h - margin * 2 - borderWidth * 2,
+            client.place(
+                x,
+                y,
+                w - borderWidth * 2,
+                h - borderWidth * 2,
                 borderWidth,
                 bc,
+                margin=self.margin,
             )
-            c.unhide()
+            client.unhide()
         else:
-            c.hide()
+            client.hide()
 
     def info(self):
         return dict(
-            all=[c.name for c in self.clients],
+            clients=[c.name for c in self.clients],
             master=[c.name for c in self.master_windows],
             slave=[c.name for c in self.slave_windows],
         )
@@ -207,10 +185,12 @@ class Tile(Layout):
         self.up()
 
     def cmd_next(self):
-        self.next()
+        client = self.focus_next(self.focused) or self.focus_first()
+        self.group.focus(client, False)
 
     def cmd_previous(self):
-        self.previous()
+        client = self.focus_previous(self.focused) or self.focus_last()
+        self.group.focus(client, False)
 
     def cmd_decrease_ratio(self):
         self.ratio -= self.ratio_increment

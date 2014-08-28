@@ -1,18 +1,17 @@
-from .. import bar, hook, utils
+from .. import bar, hook
 import base
 
 
-class _GroupBase(base._TextBox):
+class _GroupBase(base._TextBox, base.PaddingMixin, base.MarginMixin):
     defaults = [
-        ("padding", 5, "Padding inside the box"),
-        ("margin_y", 3, "Y margin outside the box"),
-        ("margin_x", 3, "X margin outside the box"),
         ("borderwidth", 3, "Current group border width"),
     ]
 
     def __init__(self, **config):
         base._TextBox.__init__(self, bar.CALCULATED, **config)
         self.add_defaults(_GroupBase.defaults)
+        self.add_defaults(base.PaddingMixin.defaults)
+        self.add_defaults(base.MarginMixin.defaults)
 
     def box_width(self, groups):
         width, height = self.drawer.max_layout_size(
@@ -20,15 +19,17 @@ class _GroupBase(base._TextBox):
             self.font,
             self.fontsize
         )
-        return width + self.padding * 2 + self.margin_x * 2 + \
+        return width + self.padding_x * 2 + self.margin_x * 2 + \
             self.borderwidth * 2
 
     def _configure(self, qtile, bar):
         base._Widget._configure(self, qtile, bar)
+
         if self.fontsize is None:
             calc = self.bar.height - self.margin_y * 2 - \
-                self.borderwidth * 2 - self.padding * 2
+                self.borderwidth * 2 - self.padding_y * 2
             self.fontsize = max(calc, 1)
+
         self.layout = self.drawer.textlayout(
             "",
             "ffffff",
@@ -46,6 +47,7 @@ class _GroupBase(base._TextBox):
         hook.subscribe.client_killed(hook_response)
         hook.subscribe.setgroup(hook_response)
         hook.subscribe.group_window_add(hook_response)
+        hook.subscribe.current_screen_change(hook_response)
 
     def drawbox(self, offset, text, bordercolor, textcolor, rounded=False,
                 block=False, width=None):
@@ -58,8 +60,8 @@ class _GroupBase(base._TextBox):
         framed = self.layout.framed(
             self.borderwidth,
             bordercolor,
-            self.padding,
-            self.padding
+            self.padding_x,
+            self.padding_y
         )
         if block:
             framed.draw_fill(offset, self.margin_y, rounded)
@@ -114,22 +116,6 @@ class GroupBox(_GroupBase):
             "Border colour for group on this screen when focused."
         ),
         (
-            "this_screen_border",
-            "113358",
-            "Border colour for group on this screen."
-        ),
-        (
-            "other_screen_border",
-            "404040",
-            "Border colour for group on other screen."
-        ),
-        ("padding", 5, "Padding inside the box"),
-        (
-            "urgent_border",
-            "FF0000",
-            "Urgent border color"
-        ),
-        (
             "urgent_alert_method",
             "border",
             "Method for alerting you of WM urgent "
@@ -151,12 +137,7 @@ class GroupBox(_GroupBase):
             "Border colour for group on other screen."
         ),
         ("urgent_border", "FF0000", "Urgent border color"),
-        (
-            "urgent_alert_method",
-            "border",
-            "Method for alerting you of WM urgent "
-            "hints (one of 'border' or 'text')"
-        ),
+        ("invert_mouse_wheel", False, "Whether to invert mouse wheel group movement")
     ]
 
     def __init__(self, **config):
@@ -180,9 +161,10 @@ class GroupBox(_GroupBase):
         self.clicked = None
         group = None
         curGroup = self.qtile.currentGroup
-        if button == 5:
+
+        if button == (5 if not self.invert_mouse_wheel else 4):
             group = curGroup.prevGroup()
-        elif button == 4:
+        elif button == (4 if not self.invert_mouse_wheel else 5):
             group = curGroup.nextGroup()
         else:
             group = self.get_clicked_group(x, y)
@@ -246,7 +228,7 @@ class GroupBox(_GroupBase):
                 text,
                 self.rounded,
                 is_block,
-                bw - self.margin_x * 2 - self.padding * 2
+                bw - self.margin_x * 2 - self.padding_x * 2
             )
             offset += bw
         self.drawer.draw(self.offset, self.width)

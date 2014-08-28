@@ -1,7 +1,12 @@
+# https://bitbucket.org/tarek/flake8/issue/141/improve-flake8-statement-to-ignore
+# is annoying, so we ignore libqtile/widget/__init__.py completely
+# flake8: noqa
+
 from backlight import Backlight
 from battery import Battery, BatteryIcon
 from clock import Clock
-from currentlayout import CurrentLayout, CurrentLayoutIcon
+from currentlayout import CurrentLayout #, CurrentLayoutIcon
+from debuginfo import DebugInfo
 from graph import CPUGraph, MemoryGraph, SwapGraph, NetGraph, HDDGraph, HDDBusyGraph
 from groupbox import AGroupBox, GroupBox
 from maildir import Maildir
@@ -16,8 +21,17 @@ from textbox import TextBox
 from volume import Volume
 from windowname import WindowName
 from windowtabs import WindowTabs
-from keyboardlayout import KeyboardLayout, KeyboardLayoutIcon
+from keyboardlayout import KeyboardLayout #, KeyboardLayoutIcon
 from df import DF
+from image import Image
+from gmail_checker import GmailChecker
+from clipboard import Clipboard
+from countdown import Countdown
+
+try:
+    from launchbar import LaunchBar
+except ImportError:
+    pass
 
 from tasklist import TaskList
 
@@ -28,6 +42,11 @@ except ImportError:
 
 try:
     from mpriswidget import Mpris
+except ImportError:
+    pass
+
+try:
+    from mpris2widget import Mpris2
 except ImportError:
     pass
 
@@ -43,7 +62,6 @@ except ImportError:
     # Requires Python >= 2.6 or simplejson
     pass
 from pacman import Pacman
-from sensors import ThermalSensor
 try:
     from wlan import Wlan
 except ImportError:

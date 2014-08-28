@@ -2,6 +2,8 @@ from .. import command, bar, configurable, drawer, pane
 import gobject
 import logging
 import threading
+import exceptions
+import warnings
 
 
 LEFT = object()
@@ -58,7 +60,7 @@ class _Widget(command.CommandObject, configurable.Configurable):
     @property
     def width(self):
         if self.width_type == bar.CALCULATED:
-            return self.calculate_width()
+            return int(self.calculate_width())
         return self._width
 
     @width.setter
@@ -171,13 +173,6 @@ class _Widget(command.CommandObject, configurable.Configurable):
             This method calls either ``gobject.timeout_add`` or
             ``gobject.timeout_add_seconds`` with same arguments. Latter is
             better for battery usage, but works only with integer timeouts.
-
-            If callback is supplied, it runs method in a separate thread
-            and then a callback at the end.
-            *_args should be a tuple of arguments to supply to appropriate
-            functions.
-            !Callback function should return False, otherwise it would be
-            re-run forever!
         """
         self.log.debug('Adding timer for %r in %.2fs', method, seconds)
         if int(seconds) == seconds:
@@ -281,6 +276,9 @@ class _TextBox(_Widget):
             return 0
 
     def draw(self):
+        # if the bar hasn't placed us yet
+        if self.offset is None:
+            return
         self.drawer.clear(self.background or self.bar.background)
         self.layout.draw(
             self.actual_padding or 0,
@@ -301,3 +299,118 @@ class _TextBox(_Widget):
         if fontshadow is not UNSPECIFIED:
             self.fontshadow = fontshadow
         self.bar.draw()
+
+
+class InLoopPollText(_TextBox):
+    """ A common interface for polling some 'fast' information, munging it, and
+    rendering the result in a text box. You probably want to use
+    ThreadedPollText instead.
+
+    ('fast' here means that this runs /in/ the event loop, so don't block! If
+    you want to run something nontrivial, use ThreadedPollWidget.) """
+
+    defaults = [
+        ("update_interval", 600, "Update interval in seconds, if none, the "
+            "widget updates whenever the event loop is idle."),
+    ]
+
+    def __init__(self, **config):
+        _TextBox.__init__(self, 'N/A', width=bar.CALCULATED, **config)
+        self.add_defaults(InLoopPollText.defaults)
+
+    def _configure(self, qtile, bar):
+        self.qtile = qtile
+        if not self.configured:
+            if self.update_interval is None:
+                gobject.idle_add(self.tick)
+            else:
+                self.timeout_add(self.update_interval, self.tick)
+        _TextBox._configure(self, qtile, bar)
+
+        # Update when we are configured.
+        self.tick()
+
+    def button_press(self, x, y, button):
+        self.tick()
+
+    def poll(self):
+        return 'N/A'
+
+    def _poll(self):
+        try:
+            return self.poll()
+        except:
+            self.log.exception('got exception while polling')
+
+    def tick(self):
+        text = self._poll()
+        self.update(text)
+        return True
+
+    def update(self, text):
+        old_width = self.layout.width
+        if self.text != text:
+            self.text = text
+            # If our width hasn't changed, we just draw ourselves. Otherwise,
+            # we draw the whole bar.
+            if self.layout.width == old_width:
+                self.draw()
+            else:
+                self.bar.draw()
+        return False
+
+
+class ThreadedPollText(InLoopPollText):
+    """ A common interface for polling some REST URL, munging the data, and
+    rendering the result in a text box. """
+    def __init__(self, **config):
+        InLoopPollText.__init__(self, **config)
+
+    def tick(self):
+        def worker():
+            text = self._poll()
+            gobject.idle_add(self.update, text)
+        threading.Thread(target=worker).start()
+        return True
+
+# these two classes below look SUSPICIOUSLY similar
+
+class PaddingMixin(object):
+    """
+        Mixin that provides padding(_x|_y|)
+
+        To use it, subclass and add this to __init__:
+
+            self.add_defaults(base.PaddingMixin.defaults)
+    """
+
+    defaults = [
+        ("padding", 3, "Padding inside the box"),
+        ("padding_x", None, "X Padding. Overrides 'padding' if set"),
+        ("padding_y", None, "Y Padding. Overrides 'padding' if set"),
+    ]
+
+    padding_x = configurable.ExtraFallback('padding_x', 'padding')
+    padding_y = configurable.ExtraFallback('padding_y', 'padding')
+
+
+class MarginMixin(object):
+    """
+        Mixin that provides margin(_x|_y|)
+
+        To use it, subclass and add this to __init__:
+
+            self.add_defaults(base.MarginMixin.defaults)
+    """
+
+    defaults = [
+        ("margin", 3, "Margin inside the box"),
+        ("margin_x", None, "X Margin. Overrides 'margin' if set"),
+        ("margin_y", None, "Y Margin. Overrides 'margin' if set"),
+    ]
+
+    margin_x = configurable.ExtraFallback('margin_x', 'margin')
+    margin_y = configurable.ExtraFallback('margin_y', 'margin')
+
+def deprecated(msg):
+    warnings.warn(msg, exceptions.DeprecationWarning)

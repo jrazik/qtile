@@ -36,7 +36,6 @@ def default_icon_path():
     return os.path.join(root, 'resources', 'layout-icons')
 
 
-
 class _CurrentLayout(base._TextBox):
     """ Base current layout class """
     def __init__(self, width=bar.CALCULATED, **config ):
@@ -44,7 +43,10 @@ class _CurrentLayout(base._TextBox):
 
 
 class CurrentLayout(_CurrentLayout):
-    """ Class printing the name of the current layout """
+    """
+        Display the name of the current layout of the current
+        group of the screen, the bar containing the widget, is on.
+    """
     
     def __init__(self, **config):
         _CurrentLayout.__init__(self, **config)
