@@ -1,10 +1,41 @@
-# -*- coding: utf-8 -*-
-from base import SingleWindow
-from .. import window
-from .. import drawer
-from .. import hook
+# -*- coding:utf-8 -*-
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011 Paul Colomiets
+# Copyright (c) 2012 roger
+# Copyright (c) 2012-2014 Tycho Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2013 Arnas Udovicius
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 Nathan Hoad
+# Copyright (c) 2014 dequis
+# Copyright (c) 2014 Thomas Sarboni
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-to_superscript = dict(zip(map(ord, u'0123456789'), map(ord, u'⁰¹²³⁴⁵⁶⁷⁸⁹')))
+# -*- coding: utf-8 -*-
+from .base import SingleWindow
+from .. import drawer, hook, window
+
+import six
+
+to_superscript = dict(zip(map(ord, six.u('0123456789')), map(ord, six.u('⁰¹²³⁴⁵⁶⁷⁸⁹'))))
 
 
 class TreeNode(object):
@@ -43,7 +74,7 @@ class TreeNode(object):
 
     def add_superscript(self, title):
         if not self.expanded and self.children:
-            return unicode(
+            return six.u(
                 len(self.children)
             ).translate(to_superscript).encode('utf-8') + title
         return title
@@ -71,7 +102,7 @@ class TreeNode(object):
         while not isinstance(node, Root):
             parent = node.parent
             idx = parent.children.index(node)
-            for i in xrange(idx + 1, len(parent.children)):
+            for i in range(idx + 1, len(parent.children)):
                 res = parent.children[i].get_first_window()
                 if res:
                     return res
@@ -84,7 +115,7 @@ class TreeNode(object):
             idx = parent.children.index(node)
             if idx == 0 and isinstance(parent, Window):
                 return parent
-            for i in xrange(idx - 1, -1, -1):
+            for i in range(idx - 1, -1, -1):
                 res = parent.children[i].get_last_window()
                 if res:
                     return res
@@ -262,6 +293,7 @@ class TreeTab(SingleWindow):
         self.add_defaults(TreeTab.defaults)
         self._focused = None
         self._panel = None
+        self._drawer = None
         self._tree = Root(self.sections)
         self._nodes = {}
 
@@ -545,12 +577,13 @@ class TreeTab(SingleWindow):
         self.group.layoutAll()
 
     def _create_drawer(self):
-        self._drawer = drawer.Drawer(
-            self.group.qtile,
-            self._panel.window.wid,
-            self.panel_width,
-            self.group.screen.dheight
-        )
+        if self._drawer is None:
+            self._drawer = drawer.Drawer(
+                self.group.qtile,
+                self._panel.window.wid,
+                self.panel_width,
+                self.group.screen.dheight
+            )
         self._drawer.clear(self.bg_color)
         self._layout = self._drawer.textlayout(
             "",

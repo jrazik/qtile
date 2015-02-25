@@ -1,6 +1,36 @@
+# -*- coding:utf-8 -*-
+# Copyright (c) 2011 Florian Mounier
+# Copyright (c) 2012-2013, 2015 Tycho Andersen
+# Copyright (c) 2013 Björn Lindström
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 dmpayton
+# Copyright (c) 2014 dequis
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from __future__ import division
+
 import math
 
-from base import Layout
+from .base import Layout
 from .. import utils
 
 
@@ -63,7 +93,7 @@ class GridInfo(object):
         if num_windows < 2:
             end = 2
         else:
-            end = num_windows / 2 + 1
+            end = num_windows // 2 + 1
         for rows in range(1, end):
             cols = int(math.ceil(float(num_windows) / rows))
             yield (rows, cols, ROWCOL)
@@ -105,8 +135,8 @@ class GridInfo(object):
             x = 0
             y = 0
             for i, col in enumerate(range(cols)):
-                w_width = width / cols
-                w_height = height / rows
+                w_width = width // cols
+                w_height = height // rows
                 if i == cols - 1:
                     w_width = width - x
                 results.append((x + xoffset, y + yoffset, w_width, w_height))
@@ -115,8 +145,8 @@ class GridInfo(object):
             x = 0
             y = 0
             for i, col in enumerate(range(rows)):
-                w_width = width / cols
-                w_height = height / rows
+                w_width = width // cols
+                w_height = height // rows
                 if i == rows - 1:
                     w_height = height - y
                 results.append((x + xoffset, y + yoffset, w_width, w_height))
@@ -134,13 +164,13 @@ class GridInfo(object):
             y = 0
             for i, row in enumerate(range(rows)):
                 x = 0
-                width = total_width / cols
+                width = total_width // cols
                 for j, col in enumerate(range(cols)):
-                    height = total_height / rows
+                    height = total_height // rows
                     if i == rows - 1 and j == 0:
                         # last row
                         remaining = self.num_windows - len(results)
-                        width = total_width / remaining
+                        width = total_width // remaining
                     elif j == cols - 1 or len(results) + 1 == self.num_windows:
                         # since we are dealing with integers,
                         # make last column (or item) take up remaining space
@@ -160,13 +190,13 @@ class GridInfo(object):
             x = 0
             for i, col in enumerate(range(cols)):
                 y = 0
-                height = total_height / rows
+                height = total_height // rows
                 for j, row in enumerate(range(rows)):
-                    width = total_width / cols
+                    width = total_width // cols
                     # down first
                     if i == cols - 1 and j == 0:
                         remaining = self.num_windows - len(results)
-                        height = total_height / remaining
+                        height = total_height // remaining
                     elif j == rows - 1 or len(results) + 1 == self.num_windows:
                         height = total_height - y
                     results.append((
@@ -193,21 +223,20 @@ class RatioTile(Layout):
         ("border_width", 1, "Border width."),
         ("name", "ratiotile", "Name of this layout."),
         ("margin", 0, "Margin of the layout"),
+        ("ratio", GOLDEN_RATIO, "Ratio of the tiles"),
+        ("ratio_increment", 0.1, "Amount to inrement per ratio increment"),
+        ("fancy", False, "Use a different method to calculate window sizes."),
     ]
 
-    def __init__(self, ratio=GOLDEN_RATIO, ratio_increment=0.1,
-                 fancy=False, **config):
+    def __init__(self, **config):
         Layout.__init__(self, **config)
         self.add_defaults(RatioTile.defaults)
         self.clients = []
-        self.ratio_increment = ratio_increment
-        self.ratio = ratio
         self.focused = None
         self.dirty = True  # need to recalculate
         self.layout_info = []
         self.last_size = None
         self.last_screen = None
-        self.fancy = fancy
 
     def clone(self, group):
         c = Layout.clone(self, group)

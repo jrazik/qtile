@@ -1,7 +1,29 @@
+# Copyright (c) 2014 Sebastian Kricner
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 Adi Sieker
+# Copyright (c) 2014 Tycho Andersen
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
-import base
+from . import base
 
 class Mpris2(base._TextBox):
     '''
@@ -91,7 +113,7 @@ class Mpris2(base._TextBox):
 
         if self.scroll_chars and self.scroll_interval:
             if(self.scroll_timer):
-                gobject.source_remove(self.scroll_timer)
+                self.scroll_timer.cancel()
             self.scrolltext = self.displaytext
             self.scroll_counter = self.scroll_wait_intervals
             self.scroll_timer = self.timeout_add(self.scroll_interval,
@@ -108,15 +130,16 @@ class Mpris2(base._TextBox):
         if self.scroll_counter:
             self.scroll_counter -= 1
             if self.scroll_counter:
-                return True
+                self.timeout_add(self.scroll_interval, self.scroll_text)
+                return
         if len(self.scrolltext) >= self.scroll_chars:
             self.scrolltext = self.scrolltext[1:]
             if len(self.scrolltext) == self.scroll_chars:
                 self.scroll_counter += self.scroll_wait_intervals
-            return True
+            self.timeout_add(self.scroll_interval, self.scroll_text)
+            return
         self.text = ''
         self.bar.draw()
-        return False
 
     def cmd_info(self):
         '''What's the current state of the widget?'''

@@ -1,17 +1,34 @@
-#!/usr/bin/env python
+# Copyright (c) 2013 Jendrik Poloczek
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 Aborilov Pavel
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014-2015 Tycho Andersen
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
 # -*- coding: utf-8 -*-
 
-import base
+from .generic_poll_text import GenPollUrl
 import locale
-import urllib2
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 
-class BitcoinTicker(base.ThreadedPollText):
+class BitcoinTicker(GenPollUrl):
     ''' A bitcoin ticker widget, data provided by the btc-e.com API. Defaults to
         displaying currency in whatever the current locale is.
     '''
@@ -27,18 +44,19 @@ class BitcoinTicker(base.ThreadedPollText):
     ]
 
     def __init__(self, **config):
-        base.ThreadedPollText.__init__(self, **config)
+        GenPollUrl.__init__(self, **config)
         self.add_defaults(BitcoinTicker.defaults)
 
-    def poll(self):
-        res = urllib2.urlopen(self.QUERY_URL % self.currency.lower())
+    @property
+    def url(self):
+        return self.QUERY_URL % self.currency.lower()
+
+    def parse(self, body):
         formatted = {}
-        res = json.loads(res.read())
-        if u'error' in res and res[u'error'] == u"invalid pair":
+        if 'error' in body and body['error'] == "invalid pair":
             locale.setlocale(locale.LC_MONETARY, "en_US.UTF-8")
             self.currency = locale.localeconv()['int_curr_symbol'].strip()
-            res = urllib2.urlopen(self.QUERY_URL % self.currency.lower())
-            res = json.loads(res.read())
-        for k, v in res[u'ticker'].iteritems():
-            formatted[k.encode('ascii')] = locale.currency(v)
+            body = self.fetch(self.url)
+        for k, v in body['ticker'].items():
+            formatted[k] = locale.currency(v)
         return self.format.format(**formatted)

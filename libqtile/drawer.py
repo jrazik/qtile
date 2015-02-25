@@ -1,10 +1,41 @@
+# Copyright (c) 2010 Aldo Cortesi
+# Copyright (c) 2011 Florian Mounier
+# Copyright (c) 2011 oitel
+# Copyright (c) 2011 Kenji_Takahashi
+# Copyright (c) 2011 Paul Colomiets
+# Copyright (c) 2012, 2014 roger
+# Copyright (c) 2012 nullzion
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014-2015 Sean Vig
+# Copyright (c) 2014 Nathan Hoad
+# Copyright (c) 2014 dequis
+# Copyright (c) 2014 Tycho Andersen
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import collections
-import utils
 import math
-import pangocairo
-import cairo
-import pango
-import xcb.xproto
+import cairocffi
+import xcffib.xproto
+
+from . import pangocffi
+from . import utils
 
 
 class TextLayout(object):
@@ -12,12 +43,11 @@ class TextLayout(object):
                  font_shadow, wrap=True, markup=False):
         self.drawer, self.colour = drawer, colour
         layout = drawer.ctx.create_layout()
-        layout.set_alignment(pango.ALIGN_CENTER)
+        layout.set_alignment(pangocffi.ALIGN_CENTER)
         if not wrap:  # pango wraps by default
-            layout.set_ellipsize(pango.ELLIPSIZE_END)
-        desc = pango.FontDescription()
-        desc.set_family(font_family)
-        desc.set_absolute_size(font_size * pango.SCALE)
+            layout.set_ellipsize(pangocffi.ELLIPSIZE_END)
+        desc = pangocffi.FontDescription.from_string(font_family)
+        desc.set_absolute_size(pangocffi.units_from_double(font_size))
         layout.set_font_description(desc)
         self.font_shadow = font_shadow
         self.layout = layout
@@ -32,7 +62,10 @@ class TextLayout(object):
     @text.setter
     def text(self, value):
         if self.markup:
-            attrlist, value, accel_char = pango.parse_markup(value)
+            # pangocffi doesn't like None here, so we use "".
+            if value is None:
+                value = ''
+            attrlist, value, accel_char = pangocffi.parse_markup(value)
             self.layout.set_attributes(attrlist)
         return self.layout.set_text(utils.scrub_to_utf8(value))
 
@@ -46,7 +79,7 @@ class TextLayout(object):
     @width.setter
     def width(self, value):
         self._width = value
-        self.layout.set_width(value * pango.SCALE)
+        self.layout.set_width(pangocffi.units_from_double(value))
 
     @width.deleter
     def width(self):
@@ -80,7 +113,7 @@ class TextLayout(object):
     def font_size(self, size):
         d = self.fontdescription()
         d.set_size(size)
-        d.set_absolute_size(size * pango.SCALE)
+        d.set_absolute_size(pangocffi.units_from_double(size))
         self.layout.set_font_description(d)
 
     def draw(self, x, y):
@@ -179,13 +212,13 @@ class Drawer:
         self.qtile.conn.conn.core.CreateGC(
             self.gc,
             self.wid,
-            xcb.xproto.GC.Foreground | xcb.xproto.GC.Background,
+            xcffib.xproto.GC.Foreground | xcffib.xproto.GC.Background,
             [
                 self.qtile.conn.default_screen.black_pixel,
                 self.qtile.conn.default_screen.white_pixel
             ]
         )
-        self.surface = cairo.XCBSurface(
+        self.surface = cairocffi.XCBSurface(
             qtile.conn.conn,
             self.pixmap,
             self.find_root_visual(),
@@ -194,6 +227,10 @@ class Drawer:
         )
         self.ctx = self.new_ctx()
         self.clear((0, 0, 1))
+
+    def __del__(self):
+        self.qtile.conn.conn.core.FreeGC(self.gc)
+        self.qtile.conn.conn.core.FreePixmap(self.pixmap)
 
     def _rounded_rect(self, x, y, width, height, linewidth):
         aspect = 1.0
@@ -255,11 +292,11 @@ class Drawer:
                     return v
 
     def new_ctx(self):
-        return pangocairo.CairoContext(cairo.Context(self.surface))
+        return pangocffi.CairoContext(cairocffi.Context(self.surface))
 
     def set_source_rgb(self, colour):
         if type(colour) == list:
-            linear = cairo.LinearGradient(0.0, 0.0, 0.0, self.height)
+            linear = cairocffi.LinearGradient(0.0, 0.0, 0.0, self.height)
             step_size = 1.0 / (len(colour) - 1)
             step = 0.0
             for c in colour:
@@ -282,31 +319,18 @@ class Drawer:
                    markup=False, **kw):
         """
             Get a text layout.
-
-            NB: the return value of this function should be saved, and reused
-            to avoid a huge memory leak in the pygtk bindings. Once this has
-            been repaired, we can make the semantics easier.
-
-            https://bugzilla.gnome.org/show_bug.cgi?id=625287
         """
         return TextLayout(self, text, colour, font_family, font_size,
                           font_shadow, markup=markup, **kw)
 
-    _sizelayout = None
-
     def max_layout_size(self, texts, font_family, font_size):
-        # FIXME: This is incredibly clumsy, to avoid a memory leak in pygtk.
-        # See comment on textlayout() for details.
-        if not self._sizelayout:
-            self._sizelayout = self.textlayout(
-                "", "ffffff", font_family, font_size, None)
+        sizelayout = self.textlayout(
+            "", "ffffff", font_family, font_size, None)
         widths, heights = [], []
-        self._sizelayout.font_family = font_family
-        self._sizelayout.font_size = font_size
         for i in texts:
-            self._sizelayout.text = i
-            widths.append(self._sizelayout.width)
-            heights.append(self._sizelayout.height)
+            sizelayout.text = i
+            widths.append(sizelayout.width)
+            heights.append(sizelayout.height)
         return max(widths), max(heights)
 
     # Old text layout functions, to be deprectated.
@@ -314,7 +338,7 @@ class Drawer:
         self.ctx.select_font_face(fontface)
         self.ctx.set_font_size(size)
         fo = self.ctx.get_font_options()
-        fo.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
+        fo.set_antialias(cairocffi.ANTIALIAS_SUBPIXEL)
 
     def text_extents(self, text):
         return self.ctx.text_extents(utils.scrub_to_utf8(text))

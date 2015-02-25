@@ -1,4 +1,33 @@
-from base import Layout
+# Copyright (c) 2010 matt
+# Copyright (c) 2010-2011 Paul Colomiets
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2012 Craig Barnes
+# Copyright (c) 2012, 2014-2015 Tycho Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2013 Julien Iguchi-Cartigny
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 dequis
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from .base import Layout
 from .. import window
 
 DEFAULT_FLOAT_WM_TYPES = set([
@@ -8,6 +37,10 @@ DEFAULT_FLOAT_WM_TYPES = set([
     'splash',
     'dialog',
 ])
+
+DEFAULT_FLOAT_RULES = [
+    {"role": "About"},
+]
 
 
 class Floating(Layout):
@@ -50,7 +83,7 @@ class Floating(Layout):
         Layout.__init__(self, **config)
         self.clients = []
         self.focused = None
-        self.float_rules = float_rules or []
+        self.float_rules = float_rules or DEFAULT_FLOAT_RULES
         self.add_defaults(Floating.defaults)
 
     def match(self, win):
@@ -79,14 +112,8 @@ class Floating(Layout):
             offset_x = win._float_info['x']
             offset_y = win._float_info['y']
 
-            if offset_x > 0:
-                new_x = new_screen.x + offset_x
-            else:
-                new_x = new_screen.x + i * 10
-            if offset_y > 0:
-                new_y = new_screen.y + offset_y
-            else:
-                new_y = new_screen.y + i * 10
+            new_x = new_screen.x + offset_x
+            new_y = new_screen.y + offset_y
 
             right_edge = new_screen.x + new_screen.width
             bottom_edge = new_screen.y + new_screen.height

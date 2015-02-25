@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import base
+from . import base
 
 import subprocess
 
@@ -23,7 +23,8 @@ import subprocess
 class Pacman(base.ThreadedPollText):
     """
     Shows number of available updates.
-    Needs the pacman package manager installed. So will only work in Arch Linux installation.
+    Needs the pacman package manager installed. So will only work in Arch Linux
+    installation.
     """
     defaults = [
         ('unavailable', 'ffffff', 'Unavailable Color - no updates.'),
@@ -43,8 +44,8 @@ class Pacman(base.ThreadedPollText):
         base.ThreadedPollText.draw(self)
 
     def poll(self):
-        pacman = subprocess.Popen(['checkupdates'], stdout=subprocess.PIPE)
-        return str(len(pacman.stdout.readlines()))
+        pacman = self.call_process(['checkupdates'])
+        return str(len(pacman.splitlines()))
 
     def button_press(self, x, y, button):
         base.ThreadedPollText.button_press(self, x, y, button)

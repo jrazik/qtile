@@ -1,4 +1,37 @@
-import cairo
+# Copyright (c) 2010 Aldo Cortesi
+# Copyright (c) 2010-2011 Paul Colomiets
+# Copyright (c) 2010, 2014 roger
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011 Kenji_Takahashi
+# Copyright (c) 2012 Mika Fischer
+# Copyright (c) 2012, 2014-2015 Tycho Andersen
+# Copyright (c) 2012-2013 Craig Barnes
+# Copyright (c) 2013 dequis
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2013 Mickael FALCK
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 Adi Sieker
+# Copyright (c) 2014 Florian Scherf
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+import cairocffi
 
 from . import base
 from os import statvfs
@@ -35,9 +68,11 @@ class _Graph(base._Widget):
         self.add_defaults(_Graph.defaults)
         self.values = [0] * self.samples
         self.maxvalue = 0
-        self.timeout_add(self.frequency, self.update)
         self.oldtime = time.time()
         self.lag_cycles = 0
+
+    def timer_setup(self):
+        self.timeout_add(self.frequency, self.update)
 
     @property
     def graphwidth(self):
@@ -57,7 +92,7 @@ class _Graph(base._Widget):
 
     def draw_line(self, x, y, values):
         step = self.graphwidth / float(self.samples - 1)
-        self.drawer.ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+        self.drawer.ctx.set_line_join(cairocffi.LINE_JOIN_ROUND)
         self.drawer.set_source_rgb(self.graph_color)
         self.drawer.ctx.set_line_width(self.line_width)
         for val in values:
@@ -67,7 +102,7 @@ class _Graph(base._Widget):
 
     def draw_linefill(self, x, y, values):
         step = self.graphwidth / float(self.samples - 2)
-        self.drawer.ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+        self.drawer.ctx.set_line_join(cairocffi.LINE_JOIN_ROUND)
         self.drawer.set_source_rgb(self.graph_color)
         self.drawer.ctx.set_line_width(self.line_width)
         for index, val in enumerate(values):
@@ -140,9 +175,8 @@ class _Graph(base._Widget):
         self.lag_cycles = int((newtime - self.oldtime) / self.frequency)
         self.oldtime = newtime
 
-        if self.configured:
-            self.update_graph()
-        return True
+        self.update_graph()
+        self.timeout_add(self.frequency, self.update)
 
     def fullfill(self, value):
         self.values = [value] * len(self.values)
@@ -312,14 +346,15 @@ class NetGraph(_Graph):
     @staticmethod
     def get_main_iface():
         filename = "/proc/net/route"
-        make_route = lambda line: dict(zip(['iface', 'dest'], line.split()))
+        def make_route(line):
+            return dict(zip(['iface', 'dest'], line.split()))
         routes = [make_route(line) for line in list(open(filename))[1:]]
         try:
             return next(
                 (r for r in routes if not int(r['dest'], 16)),
                 routes[0]
             )['iface']
-        except:
+        except (KeyError, IndexError, ValueError):
             raise RuntimeError('No valid interfaces available')
 
 
@@ -356,7 +391,7 @@ class HDDGraph(_Graph):
 class HDDBusyGraph(_Graph):
     """
         Parses /sys/block/<dev>/stat file and extracts overall device
-        IO usage, based on `io_ticks`'s value.
+        IO usage, based on ``io_ticks``'s value.
         See https://www.kernel.org/doc/Documentation/block/stat.txt
     """
     defaults = [

@@ -17,7 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from base import SingleWindow
+from .base import SingleWindow
 
 
 class Max(SingleWindow):
@@ -53,6 +53,8 @@ class Max(SingleWindow):
     def focus_next(self, window):
         if not self.clients:
             return
+        if window is None:
+            return
         if window != self._get_window():
             self.focus(window)
         idx = self.clients.index(window)
@@ -61,6 +63,8 @@ class Max(SingleWindow):
 
     def focus_previous(self, window):
         if not self.clients:
+            return
+        if window is None:
             return
         if window != self._get_window():
             self.focus(window)
@@ -82,7 +86,12 @@ class Max(SingleWindow):
         return c
 
     def add(self, client):
-        self.clients.insert(0, client)
+        try:
+            idx = self.clients.index(self._get_window())
+        except ValueError:
+            self.clients.append(client)
+        else:
+            self.clients.insert(idx + 1, client)
 
     def remove(self, client):
         if client not in self.clients:
@@ -90,6 +99,8 @@ class Max(SingleWindow):
         self.clients.remove(client)
         if self.clients:
             return self.clients[0]
+        else:
+            self.focused = None
 
     def configure(self, client, screen):
         if self.clients and client is self.focused:

@@ -1,4 +1,27 @@
-import base
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 zordsdavini
+# Copyright (c) 2014 Alexandr Kriptonov
+# Copyright (c) 2014 Tycho Andersen
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from . import base
 import imaplib
 import re
 import logging
@@ -10,17 +33,6 @@ logger = logging.getLogger('qtile')
 class GmailChecker(base.ThreadedPollText):
     """
         A simple gmail checker.
-        settings = {
-            'username': username,
-            'password': password,
-            'email_path': valide email path,
-            'fmt': "format string fot textbox widget",
-            #if status_only_unseen is True
-            #example "my unseen[%s]",
-            #if status_only_unseen is False
-            #example "messages: %s, unseen: %s"
-            status_only_unseen: True or False
-        }
     """
     defaults = [
         ("update_interval", 30, "Update time in seconds."),
@@ -44,8 +56,9 @@ class GmailChecker(base.ThreadedPollText):
         answer, raw_data = self.gmail.status(self.email_path,
                                              '(MESSAGES UNSEEN)')
         if answer == "OK":
-            messages = int(re.search('MESSAGES\s+(\d+)', raw_data[0]).group(1))
-            unseen = int(re.search('UNSEEN\s+(\d+)', raw_data[0]).group(1))
+            dec = raw_data[0].decode()
+            messages = int(re.search('MESSAGES\s+(\d+)', dec).group(1))
+            unseen = int(re.search('UNSEEN\s+(\d+)', dec).group(1))
             if(self.status_only_unseen):
                 return self.fmt % unseen
             else:

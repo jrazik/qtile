@@ -1,8 +1,39 @@
+# Copyright (c) 2010-2011 Aldo Cortesi
+# Copyright (c) 2010 Philip Kranz
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011 Paul Colomiets
+# Copyright (c) 2011-2012 roger
+# Copyright (c) 2011-2012, 2014 Tycho Andersen
+# Copyright (c) 2012 Dustin Lacewell
+# Copyright (c) 2012 Laurie Clark-Michalek
+# Copyright (c) 2012-2014 Craig Barnes
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import glob
 import os
 import string
-from .. import bar, xkeysyms, xcbq, command
-import base
+from .. import bar, xkeysyms, xcbq, command, hook
+from . import base
 
 
 class NullCompleter:
@@ -182,7 +213,7 @@ class WindowCompleter:
         """
         if not self.lookup:
             self.lookup = []
-            for wid, window in self.qtile.windowMap.iteritems():
+            for wid, window in self.qtile.windowMap.items():
                 if window.group and window.name.lower().startswith(txt):
                     self.lookup.append((window.name, wid))
 
@@ -299,6 +330,13 @@ class Prompt(base._TextBox):
     def _configure(self, qtile, bar):
         base._TextBox._configure(self, qtile, bar)
 
+        def f(win):
+            if self.active and not self.bar.window == win:
+                self.active = False
+                self.bar.widget_ungrab_keyboard()
+
+        hook.subscribe.client_focus(f)
+
     def startInput(self, prompt, callback,
                    complete=None, strict_completer=False):
         """
@@ -351,9 +389,8 @@ class Prompt(base._TextBox):
     def _blink(self):
         self.blink = not self.blink
         self._update()
-        if not self.active:
-            return False
-        return True
+        if self.active:
+            self.timeout_add(self.cursorblink, self._blink)
 
     def _update(self):
         if self.active:
@@ -388,7 +425,8 @@ class Prompt(base._TextBox):
             elif keysym == xkeysyms.keysyms['Escape']:
                 self.active = False
                 self.bar.widget_ungrab_keyboard()
-            elif keysym == xkeysyms.keysyms['Return']:
+            elif keysym in [xkeysyms.keysyms['Return'],
+                            xkeysyms.keysyms['KP_Enter']]:
                 self.active = False
                 self.bar.widget_ungrab_keyboard()
                 if self.strict_completer:

@@ -1,10 +1,40 @@
-from .. import bar, xcbq, window
-import base
+# Copyright (c) 2010 Aldo Cortesi
+# Copyright (c) 2010-2011 dequis
+# Copyright (c) 2010, 2012 roger
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011-2012, 2014 Tycho Andersen
+# Copyright (c) 2012 dmpayton
+# Copyright (c) 2012-2013 Craig Barnes
+# Copyright (c) 2013 hbc
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 Sean Vig
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-import xcb
-from xcb.xproto import EventMask, SetMode
+from __future__ import division
+
+from .. import bar, xcbq, window
+from . import base
+
+import xcffib
+from xcffib.xproto import ClientMessageEvent, ClientMessageData, EventMask, SetMode
 import atexit
-import struct
 
 
 class Icon(window._Window):
@@ -29,7 +59,7 @@ class Icon(window._Window):
             height = icon_size
 
         if height > icon_size:
-            width = width * icon_size / height
+            width = width * icon_size // height
             height = icon_size
         if height <= 0:
             width = icon_size
@@ -85,7 +115,7 @@ class TrayWindow(window._Window):
                 conn.core.ReparentWindow(wid, parent.wid, 0, 0)
                 conn.flush()
                 w.map()
-            except xcb.xproto.DrawableError:
+            except xcffib.xproto.DrawableError:
                 # The icon wasn't ready to be drawn yet... (NetworkManager does
                 # this sometimes), so we just forget about it and wait for the
                 # next event.
@@ -127,13 +157,19 @@ class Systray(base._Widget):
         qtile.conn.conn.core.SetSelectionOwner(
             win.wid,
             atoms['_NET_SYSTEM_TRAY_S0'],
-            xcb.CurrentTime
+            xcffib.CurrentTime
         )
-        event = struct.pack(
-            'BBHII5I', 33, 32, 0, qtile.root.wid,
-            atoms['MANAGER'],
-            xcb.CurrentTime, atoms['_NET_SYSTEM_TRAY_S0'],
+        data = [
+            xcffib.CurrentTime,
+            atoms['_NET_SYSTEM_TRAY_S0'],
             win.wid, 0, 0
+        ]
+        union = ClientMessageData.synthetic(data, "I" * 5)
+        event = ClientMessageEvent.synthetic(
+            format=32,
+            window=qtile.root.wid,
+            type=atoms['MANAGER'],
+            data=union
         )
         qtile.root.send_event(event, mask=EventMask.StructureNotify)
 
@@ -147,7 +183,7 @@ class Systray(base._Widget):
         for pos, icon in enumerate(self.icons.values()):
             icon.place(
                 self.offset + xoffset,
-                self.bar.height / 2 - self.icon_size / 2,
+                self.bar.height // 2 - self.icon_size // 2,
                 icon.width, self.icon_size,
                 0,
                 None
@@ -159,6 +195,6 @@ class Systray(base._Widget):
         self.qtile.conn.conn.core.SetSelectionOwner(
             0,
             atoms['_NET_SYSTEM_TRAY_S0'],
-            xcb.CurrentTime,
+            xcffib.CurrentTime,
         )
         self.traywin.hide()

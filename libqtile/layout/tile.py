@@ -1,4 +1,36 @@
-from base import Layout
+# Copyright (c) 2010 Aldo Cortesi
+# Copyright (c) 2010-2011 Paul Colomiets
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011 Tzbob
+# Copyright (c) 2012 roger
+# Copyright (c) 2012-2014 Tycho Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 dmpayton
+# Copyright (c) 2014 dequis
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from __future__ import division
+
+from .base import Layout
 from .. import utils
 
 
@@ -146,12 +178,12 @@ class Tile(Layout):
                 w = int(screenWidth * self.ratio) \
                     if len(self.slave_windows) or not self.expand \
                     else screenWidth
-                h = screenHeight / self.master
+                h = screenHeight // self.master
                 x = screen.x
                 y = screen.y + pos * h
             else:
                 w = screenWidth - int(screenWidth * self.ratio)
-                h = screenHeight / (len(self.slave_windows))
+                h = screenHeight // (len(self.slave_windows))
                 x = screen.x + int(screenWidth * self.ratio)
                 y = screen.y + self.clients[self.master:].index(client) * h
             if client is self.focused:

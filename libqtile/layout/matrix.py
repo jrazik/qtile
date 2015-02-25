@@ -1,6 +1,34 @@
+# Copyright (c) 2013 Mattias Svala
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 dmpayton
+# Copyright (c) 2014 dequis
+# Copyright (c) 2014 Tycho Andersen
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from __future__ import division
+
 import math
 
-from base import Layout
+from .base import Layout
 
 
 class Matrix(Layout):
@@ -28,7 +56,7 @@ class Matrix(Layout):
         d = Layout.info(self)
         d["rows"] = [
             [win.name for win in self.get_row(i)]
-            for i in xrange(self.get_num_rows())
+            for i in range(self.get_num_rows())
         ]
         d["current_window"] = self.current_window
         d["clients"] = [x.name for x in self.clients]
@@ -56,7 +84,7 @@ class Matrix(Layout):
         assert column < self.columns
         return [
             self.clients[i]
-            for i in xrange(column, len(self.clients), self.columns)
+            for i in range(column, len(self.clients), self.columns)
         ]
 
     def add(self, client):
@@ -71,7 +99,7 @@ class Matrix(Layout):
         if client not in self.clients:
             return
         idx = self.clients.index(client)
-        self.current_window = (idx % self.columns, idx / self.columns)
+        self.current_window = (idx % self.columns, idx // self.columns)
 
     def focus_first(self):
         if self.clients:
@@ -104,7 +132,7 @@ class Matrix(Layout):
             return
         idx = self.clients.index(client)
         column = idx % self.columns
-        row = idx / self.columns
+        row = idx // self.columns
         column_size = int(math.ceil(float(len(self.clients)) / self.columns))
         if (column, row) == self.current_window:
             px = self.group.qtile.colorPixel(self.border_focus)

@@ -1,8 +1,34 @@
-#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# Copyright (c) 2012 TiN
+# Copyright (c) 2012, 2014 Tycho Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014-2015 Sean Vig
+# Copyright (c) 2014 Adi Sieker
+# Copyright (c) 2014 Foster McLane
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
 # coding: utf-8
 
-import base
-from subprocess import Popen, PIPE
+from . import base
+from six import u
+
 import re
 
 
@@ -31,14 +57,13 @@ class ThermalSensor(base.InLoopPollText):
         base.InLoopPollText.__init__(self, **config)
         self.add_defaults(ThermalSensor.defaults)
         self.sensors_temp = re.compile(
-            ur"""
-            ([a-zA-Z]+        #Tag
-            \s?[0-9]+):       #Tag number
+            u(r"""
+            ([a-zA-Z0-9\s]+): #Tag
             \s+[+-]           #Temp signed
             ([0-9]+\.[0-9]+)  #Temp value
             (\xc2\xb0         #° match
             [CF])             #Celsius or Fahrenheit
-            """,
+            """),
             re.UNICODE | re.VERBOSE
         )
         self.value_temp = re.compile("[0-9]+\.[0-9]+")
@@ -58,13 +83,11 @@ class ThermalSensor(base.InLoopPollText):
         if not self.metric:
             fahrenheit = ["-f"]
         try:
-            cmd_sensors = Popen(["sensors", ] + fahrenheit, stdout=PIPE)
+            sensors_out = self.call_process(["sensors"] + fahrenheit)
         except OSError:
             return None
-        cmd_sensors.wait()
-        (stdout, stderr) = cmd_sensors.communicate()
         temp_values = {}
-        for value in re.findall(self.sensors_temp, stdout):
+        for value in re.findall(self.sensors_temp, sensors_out):
             temp_values[value[0]] = value[1:]
         return temp_values
 

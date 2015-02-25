@@ -1,4 +1,32 @@
-from base import SingleWindow
+# Copyright (c) 2011 Mounier Florian
+# Copyright (c) 2011 Paul Colomiets
+# Copyright (c) 2012 Craig Barnes
+# Copyright (c) 2012, 2014 Tycho Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 dmpayton
+# Copyright (c) 2014 dequis
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from .base import SingleWindow
 
 
 class Zoomy(SingleWindow):
@@ -110,11 +138,14 @@ class Zoomy(SingleWindow):
         return d
 
     def focus(self, win):
-        if self.focused and self.property_name:
+        if self.focused and self.property_name and self.focused.window.get_property(
+            self.property_name,
+            "UTF8_STRING"
+        ) is not None:
             self.focused.window.set_property(
                 self.property_name,
                 self.property_small,
-                "STRING",
+                "UTF8_STRING",
                 format=8
             )
         SingleWindow.focus(self, win)
@@ -123,7 +154,7 @@ class Zoomy(SingleWindow):
             win.window.set_property(
                 self.property_name,
                 self.property_big,
-                "STRING",
+                "UTF8_STRING",
                 format=8
             )
 

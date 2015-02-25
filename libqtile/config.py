@@ -1,9 +1,38 @@
-import command
-import hook
-import sys
-import utils
-import xcbq
+# Copyright (c) 2012-2015 Tycho Andersen
+# Copyright (c) 2013 xarvh
+# Copyright (c) 2013 horsik
+# Copyright (c) 2013-2014 roger
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014 ramnes
+# Copyright (c) 2014 Sean Vig
+# Copyright (c) 2014 Adi Sieker
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
+from . import command
+from . import hook
+from . import utils
+from . import xcbq
+
+from six import MAXSIZE
+
+from .widget.base import deprecated
 
 class Key:
     """
@@ -29,7 +58,7 @@ class Key:
         self.keysym = xcbq.keysyms[key]
         try:
             self.modmask = utils.translateMasks(self.modifiers)
-        except KeyError, v:
+        except KeyError as v:
             raise utils.QtileError(v)
 
     def __repr__(self):
@@ -56,7 +85,7 @@ class Drag(object):
         try:
             self.button_code = int(self.button.replace('Button', ''))
             self.modmask = utils.translateMasks(self.modifiers)
-        except KeyError, v:
+        except KeyError as v:
             raise utils.QtileError(v)
 
     def __repr__(self):
@@ -78,7 +107,7 @@ class Click(object):
         try:
             self.button_code = int(self.button.replace('Button', ''))
             self.modmask = utils.translateMasks(self.modifiers)
-        except KeyError, v:
+        except KeyError as v:
             raise utils.QtileError(v)
 
     def __repr__(self):
@@ -251,7 +280,7 @@ class Screen(command.CommandObject):
 
     def _items(self, name):
         if name == "layout":
-            return (True, range(len(self.group.layouts)))
+            return (True, list(range(len(self.group.layouts))))
         elif name == "window":
             return (True, [i.window.wid for i in self.group.windows])
         elif name == "bar":
@@ -282,7 +311,7 @@ class Screen(command.CommandObject):
         for bar in [self.top, self.bottom, self.left, self.right]:
             if bar:
                 bar.draw()
-        self.group.layoutAll()
+        self.qtile._eventloop.call_soon(self.group.layoutAll())
 
     def cmd_info(self):
         """
@@ -304,6 +333,14 @@ class Screen(command.CommandObject):
 
     def cmd_nextgroup(self, skip_empty=False, skip_managed=False):
         """
+            This method will be deprecated in favor of cmd_next_group.
+            Use screen.next_group in your config instead.
+        """
+        deprecated(Screen.cmd_nextgroup.__doc__)
+        return self.cmd_next_group(skip_empty, skip_managed)
+
+    def cmd_next_group(self, skip_empty=False, skip_managed=False):
+        """
             Switch to the next group.
         """
         n = self.group.nextGroup(skip_empty, skip_managed)
@@ -311,6 +348,14 @@ class Screen(command.CommandObject):
         return n.name
 
     def cmd_prevgroup(self, skip_empty=False, skip_managed=False):
+        """
+            This method will be deprecated in favor of cmd_prev_group.
+            Use screen.prev_group in your config instead
+        """
+        deprecated(Screen.cmd_prevgroup.__doc__)
+        return self.cmd_prev_group(skip_empty, skip_managed)
+
+    def cmd_prev_group(self, skip_empty=False, skip_managed=False):
         """
             Switch to the previous group.
         """
@@ -335,7 +380,7 @@ class Group(object):
     """
     def __init__(self, name, matches=None, exclusive=False,
                  spawn=None, layout=None, layouts=None, persist=True, init=True,
-                 layout_opts=None, screen_affinity=None, position=sys.maxint):
+                 layout_opts=None, screen_affinity=None, position=MAXSIZE):
         """
         :param name: the name of this group
         :type name: string
@@ -409,7 +454,7 @@ class Match(object):
             net_wm_pid = []
 
         try:
-            net_wm_pid = map(int, net_wm_pid)
+            net_wm_pid = list(map(int, net_wm_pid))
         except ValueError:
             error = 'Invalid rule for net_wm_pid: "%s" '\
                     'only ints allowed' % str(net_wm_pid)
@@ -425,7 +470,8 @@ class Match(object):
     def compare(self, client):
         for _type, rule in self._rules:
             if _type == "net_wm_pid":
-                match_func = lambda value: rule == value
+                def match_func(value):
+                    return rule == value
             else:
                 match_func = getattr(rule, 'match', None) or \
                     getattr(rule, 'count')

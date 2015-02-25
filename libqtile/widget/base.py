@@ -1,10 +1,40 @@
-from .. import command, bar, configurable, drawer, pane
-import gobject
+# Copyright (c) 2008-2010 Aldo Cortesi
+# Copyright (c) 2011 Florian Mounier
+# Copyright (c) 2011 Kenji_Takahashi
+# Copyright (c) 2011 Paul Colomiets
+# Copyright (c) 2012 roger
+# Copyright (c) 2012 Craig Barnes
+# Copyright (c) 2012-2015 Tycho Andersen
+# Copyright (c) 2013 dequis
+# Copyright (c) 2013 David R. Andersen
+# Copyright (c) 2013 Tao Sauvage
+# Copyright (c) 2014-2015 Sean Vig
+# Copyright (c) 2014 Justin Bronder
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from .. import command, bar, configurable, drawer
+import six
+import subprocess
 import logging
 import threading
-import exceptions
 import warnings
-
 
 LEFT = object()
 CENTER = object()
@@ -42,6 +72,7 @@ class _Widget(command.CommandObject, configurable.Configurable):
             self.width_type = width
             self.width = 0
         else:
+            assert isinstance(width, six.integer_types)
             self.width_type = bar.STATIC
             self.width = width
 
@@ -83,6 +114,11 @@ class _Widget(command.CommandObject, configurable.Configurable):
     def win(self):
         return self.bar.window.window
 
+    def timer_setup(self):
+        """ This is called exactly once, after the widget has been configured
+        and timers are available to be set up. """
+        pass
+
     def _configure(self, qtile, bar):
         self.qtile = qtile
         self.bar = bar
@@ -92,7 +128,9 @@ class _Widget(command.CommandObject, configurable.Configurable):
             self.bar.width,
             self.bar.height
         )
-        self.configured = True
+        if not self.configured:
+            self.configured = True
+            self.qtile.call_soon(self.timer_setup)
 
     def clear(self):
         self.drawer.set_source_rgb(self.bar.background)
@@ -100,7 +138,7 @@ class _Widget(command.CommandObject, configurable.Configurable):
 
     def info(self):
         return dict(
-            name=self.__class__.__name__,
+            name=self.name,
             offset=self.offset,
             width=self.width,
         )
@@ -145,7 +183,7 @@ class _Widget(command.CommandObject, configurable.Configurable):
         """
             Info for this object.
         """
-        return dict(name=self.name)
+        return self.info()
 
     def draw(self):
         """
@@ -170,19 +208,26 @@ class _Widget(command.CommandObject, configurable.Configurable):
     def timeout_add(self, seconds, method, method_args=(),
                     callback=None, callback_args=()):
         """
-            This method calls either ``gobject.timeout_add`` or
-            ``gobject.timeout_add_seconds`` with same arguments. Latter is
-            better for battery usage, but works only with integer timeouts.
+            This method calls either ``.call_later`` with given arguments.
         """
-        self.log.debug('Adding timer for %r in %.2fs', method, seconds)
-        if int(seconds) == seconds:
-            return gobject.timeout_add_seconds(
-                int(seconds), method, *method_args
-            )
-        else:
-            return gobject.timeout_add(
-                int(seconds * 1000), method, *method_args
-            )
+        return self.qtile.call_later(seconds, self._wrapper, method, *method_args)
+
+    def call_process(self, command, **kwargs):
+        """
+            This method uses `subprocess.check_output` to run the given command
+            and return the string from stdout, which is decoded when using
+            Python 3.
+        """
+        output = subprocess.check_output(command, **kwargs)
+        if six.PY3:
+            output = output.decode()
+        return output
+
+    def _wrapper(self, method, *method_args):
+        try:
+            method(*method_args)
+        except:
+            self.log.exception('got exception from widget timer')
 
 
 UNSPECIFIED = pane.Obj("UNSPECIFIED")
@@ -202,6 +247,7 @@ class _TextBox(_Widget):
             None,
             "font shadow color, default is None(no shadow)"
         ),
+        ("markup", False, "Whether or not to use pango markup"),
     ]
 
     def __init__(self, text=" ", width=bar.CALCULATED, height=bar.CALCULATED, **config):
@@ -216,6 +262,7 @@ class _TextBox(_Widget):
 
     @text.setter
     def text(self, value):
+        assert value is None or isinstance(value, six.string_types)
         self._text = value
         if self.layout:
             self.layout.text = value
@@ -223,6 +270,16 @@ class _TextBox(_Widget):
     @property
     def font(self):
         return self._font
+
+    @property
+    def foreground(self):
+        return self._foreground
+
+    @foreground.setter
+    def foreground(self, fg):
+        self._foreground = fg
+        if self.layout:
+            self.layout.colour = fg
 
     @font.setter
     def font(self, value):
@@ -257,6 +314,7 @@ class _TextBox(_Widget):
             self.font,
             self.fontsize,
             self.fontshadow,
+            markup=self.markup,
         )
 
     def calculate_width(self):
@@ -300,6 +358,12 @@ class _TextBox(_Widget):
             self.fontshadow = fontshadow
         self.bar.draw()
 
+    def info(self):
+        d = _Widget.info(self)
+        d['foreground'] = self.foreground
+        d['text'] = self.text
+        return d
+
 
 class InLoopPollText(_TextBox):
     """ A common interface for polling some 'fast' information, munging it, and
@@ -318,17 +382,23 @@ class InLoopPollText(_TextBox):
         _TextBox.__init__(self, 'N/A', width=bar.CALCULATED, **config)
         self.add_defaults(InLoopPollText.defaults)
 
+    def timer_setup(self):
+        update_interval = self.tick()
+        # If self.update_interval is defined and .tick() returns None, re-call after self.update_interval
+        if update_interval is None and self.update_interval is not None:
+            self.timeout_add(self.update_interval, self.timer_setup)
+        # We can change the update interval by returning something from .tick()
+        elif update_interval:
+            self.timeout_add(update_interval, self.timer_setup)
+        # If update_interval is False, we won't re-call
+
     def _configure(self, qtile, bar):
-        self.qtile = qtile
-        if not self.configured:
-            if self.update_interval is None:
-                gobject.idle_add(self.tick)
-            else:
-                self.timeout_add(self.update_interval, self.tick)
+        should_tick = self.configured
         _TextBox._configure(self, qtile, bar)
 
-        # Update when we are configured.
-        self.tick()
+        # Update when we are being re-configured.
+        if should_tick:
+            self.tick()
 
     def button_press(self, x, y, button):
         self.tick()
@@ -336,16 +406,9 @@ class InLoopPollText(_TextBox):
     def poll(self):
         return 'N/A'
 
-    def _poll(self):
-        try:
-            return self.poll()
-        except:
-            self.log.exception('got exception while polling')
-
     def tick(self):
-        text = self._poll()
+        text = self.poll()
         self.update(text)
-        return True
 
     def update(self, text):
         old_width = self.layout.width
@@ -357,7 +420,6 @@ class InLoopPollText(_TextBox):
                 self.draw()
             else:
                 self.bar.draw()
-        return False
 
 
 class ThreadedPollText(InLoopPollText):
@@ -368,12 +430,63 @@ class ThreadedPollText(InLoopPollText):
 
     def tick(self):
         def worker():
-            text = self._poll()
-            gobject.idle_add(self.update, text)
+            text = self.poll()
+            self.qtile.call_soon_threadsafe(self.update, text)
+        # TODO: There are nice asyncio constructs for this sort of thing, I think...
         threading.Thread(target=worker).start()
-        return True
+
+
+class ThreadPoolText(_TextBox):
+    """ A common interface for wrapping blocking events which when triggered
+    will update a textbox.  This is an alternative to the ThreadedPollText
+    class which differs by being push based rather than pull.
+
+    The poll method is intended to wrap a blocking function which may take
+    quite a while to return anything.  It will be executed as a future and
+    should return updated text when completed.  It may also return None to
+    disable any further updates.
+
+    param: text - Initial text to display.
+    """
+    def __init__(self, text, **config):
+        super(ThreadPoolText, self).__init__(text, width=bar.CALCULATED, **config)
+
+    def timer_setup(self):
+        def on_done(future):
+            try:
+                result = future.result()
+            except Exception:
+                self.log.exception('poll() raised exceptions, not rescheduling')
+
+            if result is not None:
+                try:
+                    self.update(result)
+                    self.timer_setup()
+                except Exception:
+                    self.log.exception('Failed to reschedule.')
+            else:
+                self.log.warning('poll() returned None, not rescheduling')
+
+        future = self.qtile.run_in_executor(self.poll)
+        future.add_done_callback(on_done)
+
+    def update(self, text):
+        old_width = self.layout.width
+        if self.text == text:
+            return
+
+        self.text = text
+
+        if self.layout.width == old_width:
+            self.draw()
+        else:
+            self.bar.draw()
+
+    def poll(self):
+        pass
 
 # these two classes below look SUSPICIOUSLY similar
+
 
 class PaddingMixin(object):
     """
@@ -412,5 +525,6 @@ class MarginMixin(object):
     margin_x = configurable.ExtraFallback('margin_x', 'margin')
     margin_y = configurable.ExtraFallback('margin_y', 'margin')
 
+
 def deprecated(msg):
-    warnings.warn(msg, exceptions.DeprecationWarning)
+    warnings.warn(msg, DeprecationWarning)
