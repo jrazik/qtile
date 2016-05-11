@@ -106,7 +106,8 @@ class KeyboardLayout(base.InLoopPollText):
         except CalledProcessError as e:
             logger.error('Can not change the keyboard layout: {0}'.format(e))
         except OSError as e:
-            logger.error('Please, check that setxkbmap is available: {0}'.format(e))
+            logger.error(
+                'Please, check that setxkbmap is available: {0}'.format(e))
 
     def cmd_next_keyboard(self):
         """Select next keyboard layout"""

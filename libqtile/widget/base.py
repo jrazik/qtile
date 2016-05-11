@@ -56,7 +56,10 @@ import warnings
 # | ORIENTATION_BOTH       | Widget displayed   | Widget displayed   |
 # |                        | horizontally       | vertically         |
 # +------------------------+--------------------+--------------------+
+
+
 class _Orientations(int):
+
     def __new__(cls, value, doc):
         return super(_Orientations, cls).__new__(cls, value)
 
@@ -144,6 +147,16 @@ class _Widget(command.CommandObject, configurable.Configurable):
         return self.offsety
 
     @property
+    def height(self):
+        if self.height_type == bar.CALCULATED:
+            return self.calculate_height()
+        return self._height
+
+    @width.setter
+    def height(self, value):
+        self._height = value
+
+    @property
     def win(self):
         return self.bar.window.window
 
@@ -198,6 +211,19 @@ class _Widget(command.CommandObject, configurable.Configurable):
             height=self.height,
         )
 
+    def pointer_over(self, x, y, detail):
+        if self.bar:
+            if len(self.bar.popup_window):
+                # It should be only one item but ...
+                for w in self.bar.popup_window.keys():
+                    w.leave_window(x, y, detail)
+
+    def enter_window(self, x, y, detail):
+        pass
+
+    def leave_window(self, x, y, detail):
+        pass
+
     def button_press(self, x, y, button):
         pass
 
@@ -245,7 +271,14 @@ class _Widget(command.CommandObject, configurable.Configurable):
         """
         raise NotImplementedError
 
-    def timeout_add(self, seconds, method, method_args=()):
+    def calculate_height(self):
+        """
+            Must be implemented if the widget can take CALCULATED for height.
+        """
+        raise NotImplementedError
+
+    def timeout_add(self, seconds, method, method_args=(),
+                    callback=None, callback_args=()):
         """
             This method calls either ``.call_later`` with given arguments.
         """
@@ -270,7 +303,7 @@ class _Widget(command.CommandObject, configurable.Configurable):
             logger.exception('got exception from widget timer')
 
 
-UNSPECIFIED = bar.Obj("UNSPECIFIED")
+UNSPECIFIED = pane.Obj("UNSPECIFIED")
 
 
 class _TextBox(_Widget):
@@ -291,9 +324,9 @@ class _TextBox(_Widget):
         ("markup", False, "Whether or not to use pango markup"),
     ]
 
-    def __init__(self, text=" ", width=bar.CALCULATED, **config):
+    def __init__(self, text=" ", width=bar.CALCULATED, height=bar.CALCULATED, **config):
         self.layout = None
-        _Widget.__init__(self, width, **config)
+        _Widget.__init__(self, width, height, **config)
         self.text = text
         self.add_defaults(_TextBox.defaults)
 
@@ -364,6 +397,13 @@ class _TextBox(_Widget):
                 self.layout.width,
                 self.bar.width
             ) + self.actual_padding * 2
+        else:
+            return 0
+
+    def calculate_height(self):
+        if self.text:
+            return min(self.layout.height,
+                       self.bar.height) + self.actual_padding * 2
         else:
             return 0
 
@@ -460,6 +500,7 @@ class InLoopPollText(_TextBox):
 class ThreadedPollText(InLoopPollText):
     """ A common interface for polling some REST URL, munging the data, and
     rendering the result in a text box. """
+
     def __init__(self, **config):
         InLoopPollText.__init__(self, **config)
 
@@ -469,7 +510,8 @@ class ThreadedPollText(InLoopPollText):
                 text = self.poll()
                 self.qtile.call_soon_threadsafe(self.update, text)
             except:
-                logger.exception("problem polling to update widget %s", self.name)
+                logger.exception(
+                    "problem polling to update widget %s", self.name)
         # TODO: There are nice asyncio constructs for this sort of thing, I
         # think...
         threading.Thread(target=worker).start()
@@ -510,7 +552,8 @@ class ThreadPoolText(_TextBox):
                     self.update(result)
 
                     if self.update_interval is not None:
-                        self.timeout_add(self.update_interval, self.timer_setup)
+                        self.timeout_add(self.update_interval,
+                                         self.timer_setup)
                     else:
                         self.timer_setup()
 

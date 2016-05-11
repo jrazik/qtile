@@ -218,6 +218,9 @@ class Subscribe(object):
         """
         return self._subscribe("screen_change", func)
 
+    def keyboard_layout_change(self, func):
+        return self._subscribe("keyboard_layout_change", func)
+        
     def current_screen_change(self, func):
         """Called when the current screen (i.e. the screen with focus) changes
 

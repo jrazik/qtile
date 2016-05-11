@@ -28,6 +28,7 @@ import six
 
 import libqtile.layout
 import libqtile.bar
+import libqtile.gap
 import libqtile.widget
 import libqtile.manager
 import libqtile.config
@@ -196,18 +197,21 @@ geom_config = pytest.mark.parametrize("qtile", [GeomConf], indirect=True)
 
 
 class DBarH(libqtile.bar.Bar):
+
     def __init__(self, widgets, size):
         libqtile.bar.Bar.__init__(self, widgets, size)
         self.horizontal = True
 
 
 class DBarV(libqtile.bar.Bar):
+
     def __init__(self, widgets, size):
         libqtile.bar.Bar.__init__(self, widgets, size)
         self.horizontal = False
 
 
 class DWidget(object):
+
     def __init__(self, length, length_type):
         self.length, self.length_type = length, length_type
 

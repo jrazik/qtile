@@ -29,8 +29,25 @@
 from . import base
 from .. import bar, hook
 
+# for the popup window
+from libqtile import notify_window
+from textbox import TextBox
 
-class CurrentLayout(base._TextBox):
+
+def default_icon_path():
+    """ Define the icon path relativement to the this file """
+    root = os.sep.join(os.path.abspath(__file__).split(os.sep)[:-2])
+    return os.path.join(root, 'resources', 'layout-icons')
+
+
+class _CurrentLayout(base._TextBox):
+    """ Base current layout class """
+
+    def __init__(self, width=bar.CALCULATED, **config):
+        base._TextBox.__init__(self, "", width, **config)
+
+
+class CurrentLayout(_CurrentLayout):
     """
     Display the name of the current layout of the current group of the screen,
     the bar containing the widget, is on.
@@ -46,6 +63,7 @@ class CurrentLayout(base._TextBox):
         self.setup_hooks()
 
     def setup_hooks(self):
+        """ define a hook function in case of layout changing """
         def hook_response(layout, group):
             if group.screen is not None and group.screen == self.bar.screen:
                 self.text = layout.name
@@ -53,6 +71,7 @@ class CurrentLayout(base._TextBox):
         hook.subscribe.layout_change(hook_response)
 
     def button_press(self, x, y, button):
+        """ Two actions are defined in case of button press on the widget """
         if button == 1:
             self.qtile.cmd_next_layout()
         elif button == 2:
